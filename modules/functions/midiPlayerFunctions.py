@@ -317,37 +317,40 @@ def stopPlayback():
             return
         app.isRunning = False
 
-        useMIDI = configuration.configData["midiPlayer"]["useMIDIOutput"]
+        try:
+            useMIDI = configuration.configData["midiPlayer"]["useMIDIOutput"]
 
-        if useMIDI:
-            useOutput.stopPlayback()
-            logger.debug("useOutput.stopPlayback called")
-        else:
-            midiHandler.stopPlayback()
-            logger.debug("midiHandler.stopPlayback called")
-
-        bindControls()
-        MidiPlayerTab.stopButton.configure(
-            state="disabled",
-            fg_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["StopColorDisabled"]
-        )
-        MidiPlayerTab.playButton.configure(
-            text="Play",
-            fg_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["PlayColor"],
-            hover_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["PlayColorHover"]
-        )
-
-        midiFile = MidiPlayerTab.filePathEntry.get()
-        if os.path.exists(midiFile):
-            midiFileData = MidiFile(midiFile, clip=True)
-            totalTime = midiFileData.length
-            timelineText = (
-                f"0:00:00 / {str(datetime.timedelta(seconds=int(totalTime)))}"
-                if configuration.configData['appUI']['timestamp']
-                else f"X:XX:XX / {str(datetime.timedelta(seconds=int(totalTime)))}"
+            if useMIDI:
+                useOutput.stopPlayback()
+                logger.debug("useOutput.stopPlayback called")
+            else:
+                midiHandler.stopPlayback()
+                logger.debug("midiHandler.stopPlayback called")
+        except Exception as e:
+            logger.debug(f"stopPlayback backend cleanup error: {e}")
+        finally:
+            bindControls()
+            MidiPlayerTab.stopButton.configure(
+                state="disabled",
+                fg_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["StopColorDisabled"]
             )
-            MidiPlayerTab.timelineIndicator.configure(text=timelineText)
-        logger.debug("stopPlayback completed")
+            MidiPlayerTab.playButton.configure(
+                text="Play",
+                fg_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["PlayColor"],
+                hover_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["PlayColorHover"]
+            )
+
+            midiFile = MidiPlayerTab.filePathEntry.get()
+            if os.path.exists(midiFile):
+                midiFileData = MidiFile(midiFile, clip=True)
+                totalTime = midiFileData.length
+                timelineText = (
+                    f"0:00:00 / {str(datetime.timedelta(seconds=int(totalTime)))}"
+                    if configuration.configData['appUI']['timestamp']
+                    else f"X:XX:XX / {str(datetime.timedelta(seconds=int(totalTime)))}"
+                )
+                MidiPlayerTab.timelineIndicator.configure(text=timelineText)
+            logger.debug("stopPlayback completed")
     except Exception as e:
         logger.exception(f"stopPlayback error: {e}")
 

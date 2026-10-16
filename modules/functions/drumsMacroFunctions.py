@@ -270,29 +270,34 @@ def stopPlayback():
             return
         app.isRunning = False
 
-        midiHandler.stopPlayback()
-        bindControls()
-        DrumsMacroTab.stopButton.configure(
-            state="disabled",
-            fg_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["StopColorDisabled"]
-        )
-        DrumsMacroTab.playButton.configure(
-            text="Play",
-            fg_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["PlayColor"],
-            hover_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["PlayColorHover"]
-        )
-
-        midiFile = DrumsMacroTab.midiPathDropdown.get()
-        if os.path.exists(midiFile):
-            midiFileData = MidiFile(midiFile, clip=True)
-            totalTime = midiFileData.length
-            timelineText = (
-                f"0:00:00 / {str(datetime.timedelta(seconds=int(totalTime)))}"
-                if configuration.configData['appUI']['timestamp']
-                else f"X:XX:XX / {str(datetime.timedelta(seconds=int(totalTime)))}"
+        try:
+            midiHandler.stopPlayback()
+            logger.debug("midiHandler.stopPlayback called")
+        except Exception as e:
+            logger.debug(f"stopPlayback backend cleanup error: {e}")
+        finally:
+            bindControls()
+            DrumsMacroTab.stopButton.configure(
+                state="disabled",
+                fg_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["StopColorDisabled"]
             )
-            DrumsMacroTab.timelineIndicator.configure(text=timelineText)
-        logger.debug("stopPlayback completed")
+            DrumsMacroTab.playButton.configure(
+                text="Play",
+                fg_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["PlayColor"],
+                hover_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["PlayColorHover"]
+            )
+
+            midiFile = DrumsMacroTab.midiPathDropdown.get()
+            if os.path.exists(midiFile):
+                midiFileData = MidiFile(midiFile, clip=True)
+                totalTime = midiFileData.length
+                timelineText = (
+                    f"0:00:00 / {str(datetime.timedelta(seconds=int(totalTime)))}"
+                    if configuration.configData['appUI']['timestamp']
+                    else f"X:XX:XX / {str(datetime.timedelta(seconds=int(totalTime)))}"
+                )
+                DrumsMacroTab.timelineIndicator.configure(text=timelineText)
+            logger.debug("stopPlayback completed")
     except Exception as e:
         logger.exception(f"stopPlayback error: {e}")
 

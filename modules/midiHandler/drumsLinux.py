@@ -215,16 +215,35 @@ def playMidiOnce(filePath):
     return True
 
 def playMidiFile(filePath):
-    while not (stopEvent.is_set() or closeThread):
-        finished = playMidiOnce(filePath)
-        if not configuration.configData["drumsMacro"]["loopSong"] or not finished or stopEvent.is_set() or closeThread:
-            break
+    crashed = False
+    try:
+        while not (stopEvent.is_set() or closeThread):
+            finished = playMidiOnce(filePath)
+            if not configuration.configData["drumsMacro"]["loopSong"] or not finished or stopEvent.is_set() or closeThread:
+                break
+            for key in list(heldKeys):
+                release(key)
+    except Exception as e:
+        crashed = True
+        mainFunctions.logger.debug(f"playMidiFile error: {e}")
+    finally:
         for key in list(heldKeys):
-            release(key)
+            try:
+                release(key)
+            except Exception:
+                pass
 
-    if not (stopEvent.is_set() or closeThread) and not configuration.configData["drumsMacro"]["loopSong"]:
-        from modules.functions.drumsMacroFunctions import stopPlayback
-        stopPlayback()
+        if (crashed or not configuration.configData["drumsMacro"]["loopSong"]) and not (stopEvent.is_set() or closeThread):
+            from modules.functions.drumsMacroFunctions import stopPlayback
+            app = mainFunctions.getApp()
+            if app and hasattr(app, "after"):
+                try:
+                    app.after(0, stopPlayback)
+                except Exception as e:
+                    mainFunctions.logger.debug(f"app.after stopPlayback error: {e}")
+                    stopPlayback()
+            else:
+                stopPlayback()
 
 def formatTime(seconds):
     hours = int(seconds // 3600)
