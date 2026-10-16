@@ -13,6 +13,18 @@ import os
 import logging
 import platform
 
+import select
+import atexit
+
+try:
+    import evdev
+    from evdev import ecodes
+    EVDEV_AVAILABLE = True
+except ImportError:
+    EVDEV_AVAILABLE = False
+    evdev = None
+    ecodes = None
+
 try:
     from pynput import keyboard as pynputKeyboard
 except Exception:
@@ -89,37 +101,282 @@ specialKeyMap = {
     "SCROLLLOCK": "SCROLLLOCK"
 }
 
-def startGlobalListener():
-    global listener
-    if listener is None:
-        def onPress(key):
-            if ignoreKeyPress:
-                return
+EVDEV_KEY_MAP = {}
+if EVDEV_AVAILABLE:
+    for i in range(1, 16):
+        code = getattr(ecodes, f"KEY_F{i}", None)
+        if code is not None:
+            EVDEV_KEY_MAP[code] = f"F{i}"
+    for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+        code = getattr(ecodes, f"KEY_{c}", None)
+        if code is not None:
+            EVDEV_KEY_MAP[code] = c
+    for d in "0123456789":
+        code = getattr(ecodes, f"KEY_{d}", None)
+        if code is not None:
+            EVDEV_KEY_MAP[code] = d
+    for i in range(10):
+        code = getattr(ecodes, f"KEY_KP{i}", None)
+        if code is not None:
+            EVDEV_KEY_MAP[code] = f"NUMPAD{i}"
+    EVDEV_KEY_MAP.update({
+        ecodes.KEY_SPACE: "SPACE",
+        ecodes.KEY_ESC: "ESC",
+        ecodes.KEY_ENTER: "ENTER",
+        ecodes.KEY_TAB: "TAB",
+        ecodes.KEY_BACKSPACE: "BACKSPACE",
+        ecodes.KEY_DELETE: "DELETE",
+        ecodes.KEY_INSERT: "INSERT",
+        ecodes.KEY_HOME: "HOME",
+        ecodes.KEY_END: "END",
+        ecodes.KEY_PAGEUP: "PAGE_UP",
+        ecodes.KEY_PAGEDOWN: "PAGE_DOWN",
+        ecodes.KEY_UP: "UP",
+        ecodes.KEY_DOWN: "DOWN",
+        ecodes.KEY_LEFT: "LEFT",
+        ecodes.KEY_RIGHT: "RIGHT",
+        ecodes.KEY_LEFTSHIFT: "LEFT SHIFT",
+        ecodes.KEY_RIGHTSHIFT: "RIGHT SHIFT",
+        ecodes.KEY_LEFTCTRL: "LEFT CTRL",
+        ecodes.KEY_RIGHTCTRL: "RIGHT CTRL",
+        ecodes.KEY_LEFTALT: "LEFT ALT",
+        ecodes.KEY_RIGHTALT: "RIGHT ALT",
+        ecodes.KEY_LEFTMETA: "CMD",
+        ecodes.KEY_RIGHTMETA: "CMD",
+        ecodes.KEY_CAPSLOCK: "CAPSLOCK",
+        ecodes.KEY_NUMLOCK: "NUMLOCK",
+        ecodes.KEY_SCROLLLOCK: "SCROLLLOCK",
+        ecodes.KEY_MINUS: "-",
+        ecodes.KEY_EQUAL: "=",
+        ecodes.KEY_LEFTBRACE: "[",
+        ecodes.KEY_RIGHTBRACE: "]",
+        ecodes.KEY_SEMICOLON: ";",
+        ecodes.KEY_APOSTROPHE: "'",
+        ecodes.KEY_GRAVE: "`",
+        ecodes.KEY_BACKSLASH: "\\",
+        ecodes.KEY_COMMA: ",",
+        ecodes.KEY_DOT: ".",
+        ecodes.KEY_SLASH: "/",
+        ecodes.KEY_KPPLUS: "NUMPAD+",
+        ecodes.KEY_KPMINUS: "NUMPAD-",
+        ecodes.KEY_KPASTERISK: "NUMPAD*",
+        ecodes.KEY_KPSLASH: "NUMPAD/",
+        ecodes.KEY_KPDOT: "NUMPAD.",
+        ecodes.KEY_KPENTER: "ENTER",
+    })
+
+_evdevThread = None
+_evdevStopEvent = None
+
+
+def _dispatchHotkey(callback):
+    app = getApp()
+    if app and hasattr(app, "after"):
+        try:
+            app.after(0, callback)
+            return
+        except Exception as e:
+            logger.debug(f"_dispatchHotkey app.after error: {e}")
+    try:
+        callback()
+    except Exception as e:
+        logger.debug(f"_dispatchHotkey direct call error: {e}")
+
+
+def _isKeyboardDevice(dev):
+    try:
+        if not dev or not dev.name:
+            return False
+        if "nanomidiplayer" in dev.name.lower():
+            return False
+        caps = dev.capabilities()
+        if ecodes.EV_KEY not in caps:
+            return False
+        keys = caps[ecodes.EV_KEY]
+        return ecodes.KEY_A in keys and ecodes.KEY_SPACE in keys
+    except Exception:
+        return False
+
+
+def _getEvdevKeyboards():
+    devices = []
+    if not EVDEV_AVAILABLE:
+        return devices
+    try:
+        for path in evdev.list_devices():
             try:
-                keyStr = None
-                if hasattr(key, "char") and key.char:
-                    keyStr = key.char.upper()
-
+                dev = evdev.InputDevice(path)
+                if _isKeyboardDevice(dev):
+                    devices.append(dev)
                 else:
-                    rawName = str(key).replace("Key.", "").replace(" ", "_").upper()
-                    if rawName in ("CTRL", "CONTROL"):
-                        rawName = "CTRL_L"
-                    elif rawName == "SHIFT":
-                        rawName = "SHIFT_L"
-                    elif rawName == "ALT":
-                        rawName = "ALT_L"
+                    dev.close()
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return devices
 
-                    keyStr = specialKeyMap.get(rawName, rawName)
 
-                if keyStr in activeHotkeys:
-                    activeHotkeys[keyStr]()
+def _evdevListenerWorker():
+    global _evdevStopEvent
+    devMap = {}
+    lastScanTime = 0.0
 
+    logger.debug("evdevListenerWorker started")
+    while _evdevStopEvent is not None and not _evdevStopEvent.is_set():
+        now = time.time()
+        if now - lastScanTime >= 3.0 or not devMap:
+            lastScanTime = now
+            try:
+                currentPaths = {d.path for d in devMap.values()}
+                for path in evdev.list_devices():
+                    if path not in currentPaths:
+                        try:
+                            dev = evdev.InputDevice(path)
+                            if _isKeyboardDevice(dev):
+                                devMap[dev.fileno()] = dev
+                                logger.debug(f"evdev listener attached to {dev.name} ({dev.path})")
+                            else:
+                                dev.close()
+                        except Exception:
+                            pass
             except Exception as e:
-                logger.debug(f"onPress error: {e}")
+                logger.debug(f"evdev device rescan error: {e}")
 
+        if not devMap:
+            time.sleep(0.5)
+            continue
+
+        try:
+            r, _, _ = select.select(list(devMap.keys()), [], [], 0.5)
+        except (ValueError, OSError):
+            for fd, dev in list(devMap.items()):
+                try:
+                    select.select([fd], [], [], 0)
+                except Exception:
+                    try:
+                        dev.close()
+                    except Exception:
+                        pass
+                    devMap.pop(fd, None)
+            continue
+
+        for fd in r:
+            dev = devMap.get(fd)
+            if not dev:
+                continue
+            try:
+                for event in dev.read():
+                    if event.type == ecodes.EV_KEY and event.value == 1:
+                        if ignoreKeyPress:
+                            continue
+                        keyName = EVDEV_KEY_MAP.get(event.code)
+                        if keyName and keyName in activeHotkeys:
+                            _dispatchHotkey(activeHotkeys[keyName])
+            except (OSError, IOError):
+                logger.debug(f"evdev device disconnected: {getattr(dev, 'path', fd)}")
+                try:
+                    dev.close()
+                except Exception:
+                    pass
+                devMap.pop(fd, None)
+
+    for dev in devMap.values():
+        try:
+            dev.close()
+        except Exception:
+            pass
+    devMap.clear()
+    logger.debug("evdevListenerWorker stopped")
+
+
+def stopGlobalListener():
+    global listener, _evdevThread, _evdevStopEvent
+    if _evdevStopEvent is not None:
+        _evdevStopEvent.set()
+    if _evdevThread is not None and _evdevThread.is_alive():
+        _evdevThread.join(timeout=1.0)
+    _evdevThread = None
+    _evdevStopEvent = None
+
+    if listener is not None:
+        try:
+            listener.stop()
+        except Exception:
+            pass
+        listener = None
+
+
+atexit.register(stopGlobalListener)
+
+
+def startGlobalListener():
+    global listener, _evdevThread, _evdevStopEvent
+    if (_evdevThread is not None and _evdevThread.is_alive()) or (listener is not None and getattr(listener, "is_alive", lambda: False)()):
+        return
+
+    if osName == "Linux" and EVDEV_AVAILABLE:
+        try:
+            testDevs = _getEvdevKeyboards()
+            if testDevs:
+                for d in testDevs:
+                    try:
+                        d.close()
+                    except Exception:
+                        pass
+                _evdevStopEvent = threading.Event()
+                _evdevThread = threading.Thread(target=_evdevListenerWorker, daemon=True, name="evdevGlobalHotkeyListener")
+                _evdevThread.start()
+                logger.info("evdev-based global hotkey listener started successfully.")
+                return
+            else:
+                logger.info(
+                    "evdev found no accessible keyboard devices in /dev/input/event*. "
+                    "Falling back to pynput. For global hotkeys under Wayland without window focus, "
+                    "add your user to the 'input' group: sudo usermod -aG input $USER"
+                )
+        except Exception as e:
+            logger.info(
+                f"evdev keyboard initialization failed ({e}). Falling back to pynput. "
+                "For global hotkeys under Wayland without window focus, add your user to the 'input' group: "
+                "sudo usermod -aG input $USER"
+            )
+
+    if pynputKeyboard is None:
+        logger.warning("pynput is not available. Global hotkeys disabled.")
+        return
+
+    def onPress(key):
+        if ignoreKeyPress:
+            return
+        try:
+            keyStr = None
+            if hasattr(key, "char") and key.char:
+                keyStr = key.char.upper()
+            else:
+                rawName = str(key).replace("Key.", "").replace(" ", "_").upper()
+                if rawName in ("CTRL", "CONTROL"):
+                    rawName = "CTRL_L"
+                elif rawName == "SHIFT":
+                    rawName = "SHIFT_L"
+                elif rawName == "ALT":
+                    rawName = "ALT_L"
+
+                keyStr = specialKeyMap.get(rawName, rawName)
+
+            if keyStr in activeHotkeys:
+                _dispatchHotkey(activeHotkeys[keyStr])
+
+        except Exception as e:
+            logger.debug(f"onPress error: {e}")
+
+    try:
         listener = pynputKeyboard.Listener(on_press=onPress)
         listener.daemon = True
         listener.start()
+        logger.debug("pynput global hotkey listener started.")
+    except Exception as e:
+        logger.warning(f"Failed to start pynput global hotkey listener: {e}")
 
 class ScrollableFrame(ctk.CTkScrollableFrame):
     def check_if_master_is_canvas(self, widget):

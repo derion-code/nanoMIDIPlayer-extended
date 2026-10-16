@@ -357,16 +357,35 @@ def playMidiOnce(midiFile):
 def playMidiFile(midiFile):
     log("nanoMIDI Mid2VK Translator v3.0")
     log(f"Playing MIDI file: {midiFile}")
-    while not (stopEvent.is_set() or closeThread):
-        finished = playMidiOnce(midiFile)
-        if not configuration.configData["midiPlayer"]["loopSong"] or not finished or stopEvent.is_set() or closeThread:
-            break
+    crashed = False
+    try:
+        while not (stopEvent.is_set() or closeThread):
+            finished = playMidiOnce(midiFile)
+            if not configuration.configData["midiPlayer"]["loopSong"] or not finished or stopEvent.is_set() or closeThread:
+                break
+            for key in list(heldKeys):
+                release(key)
+    except Exception as e:
+        crashed = True
+        mainFunctions.logger.debug(f"playMidiFile error: {e}")
+    finally:
         for key in list(heldKeys):
-            release(key)
+            try:
+                release(key)
+            except Exception:
+                pass
 
-    if not configuration.configData["midiPlayer"]["loopSong"]:
-        from modules.functions.midiPlayerFunctions import stopPlayback
-        stopPlayback()
+        if (crashed or not configuration.configData["midiPlayer"]["loopSong"]) and not (stopEvent.is_set() or closeThread):
+            from modules.functions.midiPlayerFunctions import stopPlayback
+            app = mainFunctions.getApp()
+            if app and hasattr(app, "after"):
+                try:
+                    app.after(0, stopPlayback)
+                except Exception as e:
+                    mainFunctions.logger.debug(f"app.after stopPlayback error: {e}")
+                    stopPlayback()
+            else:
+                stopPlayback()
 
 def formatTime(seconds):
     hours = int(seconds // 3600)
@@ -454,12 +473,12 @@ def stopPlayback():
         keyboardHandlers.clear()
     except Exception:
         pass
-    if playThread is not None and isinstance(playThread, threading.Thread):
+    if playThread is not None and isinstance(playThread, threading.Thread) and playThread is not threading.current_thread():
         try:
             playThread.join(timeout=1.0)
         except Exception:
             pass
-    if clockThreadRef is not None and isinstance(clockThreadRef, threading.Thread):
+    if clockThreadRef is not None and isinstance(clockThreadRef, threading.Thread) and clockThreadRef is not threading.current_thread():
         try:
             clockThreadRef.join(timeout=1.0)
         except Exception:
