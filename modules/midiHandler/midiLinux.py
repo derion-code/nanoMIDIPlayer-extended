@@ -364,7 +364,7 @@ def playMidiFile(midiFile):
         for key in list(heldKeys):
             release(key)
 
-    if not configuration.configData["midiPlayer"]["loopSong"]:
+    if not (stopEvent.is_set() or closeThread) and not configuration.configData["midiPlayer"]["loopSong"]:
         from modules.functions.midiPlayerFunctions import stopPlayback
         stopPlayback()
 
@@ -454,12 +454,12 @@ def stopPlayback():
         keyboardHandlers.clear()
     except Exception:
         pass
-    if playThread is not None and isinstance(playThread, threading.Thread):
+    if playThread is not None and isinstance(playThread, threading.Thread) and playThread is not threading.current_thread():
         try:
             playThread.join(timeout=1.0)
         except Exception:
             pass
-    if clockThreadRef is not None and isinstance(clockThreadRef, threading.Thread):
+    if clockThreadRef is not None and isinstance(clockThreadRef, threading.Thread) and clockThreadRef is not threading.current_thread():
         try:
             clockThreadRef.join(timeout=1.0)
         except Exception:

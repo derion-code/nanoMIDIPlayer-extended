@@ -268,9 +268,9 @@ def stopPlayback():
     try:
         if not app.isRunning:
             return
+        app.isRunning = False
 
         midiHandler.stopPlayback()
-        app.isRunning = False
         bindControls()
         DrumsMacroTab.stopButton.configure(
             state="disabled",

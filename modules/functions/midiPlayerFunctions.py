@@ -315,6 +315,7 @@ def stopPlayback():
     try:
         if not app.isRunning:
             return
+        app.isRunning = False
 
         useMIDI = configuration.configData["midiPlayer"]["useMIDIOutput"]
 
@@ -325,7 +326,6 @@ def stopPlayback():
             midiHandler.stopPlayback()
             logger.debug("midiHandler.stopPlayback called")
 
-        app.isRunning = False
         bindControls()
         MidiPlayerTab.stopButton.configure(
             state="disabled",
