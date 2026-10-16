@@ -146,6 +146,28 @@ build.bat
 nanoMIDIPlayer.exe --debug
 ```
 
+#### 🐧 Linux (Wayland / X11) uinput Setup
+To simulate keypresses under Wayland, nanoMIDIPlayer supports `uinput` (via `evdev`). Ensure your user has access to `/dev/uinput`:
+1. Ensure the `uinput` kernel module is loaded:
+   ```bash
+   sudo modprobe uinput
+   ```
+2. Create a udev rule for non-root access:
+   ```bash
+   echo 'KERNEL=="uinput", MODE="0660", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+   sudo udevadm control --reload-rules && sudo udevadm trigger
+   ```
+3. Add your user to the `input` group:
+   ```bash
+   sudo usermod -aG input $USER
+   ```
+   *(Log out and log back in for group membership to take effect)*
+
+You can select `uinput` in the Settings tab or run with:
+```bash
+python main.py --input-module uinput
+```
+
 ---
 
 ### 💖 Support & Contributions  

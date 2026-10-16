@@ -13,7 +13,10 @@ import os
 import logging
 import platform
 
-from pynput import keyboard as pynputKeyboard
+try:
+    from pynput import keyboard as pynputKeyboard
+except Exception:
+    pynputKeyboard = None
 from modules import configuration
 from ui import customTheme
 from ui.midiPlayer import MidiPlayerTab
@@ -28,8 +31,6 @@ logWorkedStarted = False
 logCooldown = 0.05
 hotkeyButtonActive = None
 logger = logging.getLogger(__name__)
-
-from pynput import keyboard as pynputKeyboard
 
 listener = None
 activeHotkeys = {}

@@ -6,7 +6,11 @@ import threading
 import time
 import random
 
-from pynput import keyboard as pynputKeyboard
+try:
+    from pynput import keyboard as pynputKeyboard
+except Exception:
+    pynputKeyboard = None
+
 from modules.functions import mainFunctions
 from modules import configuration
 
@@ -17,7 +21,7 @@ activeTransposedNotes = {}
 log = mainFunctions.log
 
 def logKeys(action, key):
-    if isinstance(key, pynputKeyboard.Key):
+    if pynputKeyboard and isinstance(key, getattr(pynputKeyboard, "Key", ())):
         keyName = key.name if key.name else str(key)
     else:
         keyName = str(key)
@@ -31,61 +35,97 @@ def logKeys(action, key):
         log(f"{action}: {keyName}")
 
 specialKeyMap = {
-    "shift": pynputKeyboard.Key.shift,
-    "ctrl": pynputKeyboard.Key.ctrl,
-    "alt": pynputKeyboard.Key.alt,
-    "space": pynputKeyboard.Key.space
+    "shift": getattr(getattr(pynputKeyboard, "Key", None), "shift", "shift"),
+    "ctrl": getattr(getattr(pynputKeyboard, "Key", None), "ctrl", "ctrl"),
+    "alt": getattr(getattr(pynputKeyboard, "Key", None), "alt", "alt"),
+    "space": getattr(getattr(pynputKeyboard, "Key", None), "space", "space")
+} if pynputKeyboard else {
+    "shift": "shift", "ctrl": "ctrl", "alt": "alt", "space": "space"
 }
 
-if configuration.configData["midiPlayer"]["inputModule"] == "keyboard":
-    def press(key):
+from modules.midiHandler import uinputHelper
+
+pynputController = None
+
+def getPynputController():
+    global pynputController
+    if pynputKeyboard is None:
+        log("pynput is unavailable in this environment.")
+        return None
+    if pynputController is None:
+        try:
+            pynputController = pynputKeyboard.Controller()
+        except Exception as e:
+            log(f"Failed to initialize pynput controller: {e}")
+    return pynputController
+
+blockedKeys = {f"f{i}" for i in range(1, 13)} | {"tab", "backspace", "esc"}
+
+def translateKey(key):
+    keyLower = key.lower() if isinstance(key, str) else key
+    if isinstance(keyLower, str) and keyLower in specialKeyMap:
+        return specialKeyMap[keyLower]
+    elif isinstance(keyLower, str) and len(keyLower) == 1:
+        return keyLower
+    elif pynputKeyboard and isinstance(key, getattr(pynputKeyboard, "Key", ())):
+        return key
+    else:
+        raise ValueError(f"Unsupported key for pynput: {key}")
+
+def isBlockedKey(keyObj):
+    if isinstance(keyObj, str):
+        return keyObj.lower() in blockedKeys
+    if pynputKeyboard and isinstance(keyObj, getattr(pynputKeyboard, "Key", ())):
+        name = getattr(keyObj, "name", None)
+        if isinstance(name, str) and name.lower() in blockedKeys:
+            return True
+        s = str(keyObj).lower()
+        if s.startswith("key.f") and any(s.startswith(f"key.f{i}") for i in range(1, 13)):
+            return True
+        return False
+    return False
+
+def press(key):
+    inputMod = configuration.configData.get("midiPlayer", {}).get("inputModule", "pynput")
+    if inputMod == "uinput":
+        if uinputHelper.pressKey(key):
+            logKeys("press", key)
+            heldKeys.add(key)
+    elif inputMod == "keyboard":
         keyboard.press(key)
         logKeys("press", key)
-    def release(key):
-        keyboard.release(key)
-        logKeys("release", key)
-
-elif configuration.configData["midiPlayer"]["inputModule"] == "pynput":
-    pynputController = pynputKeyboard.Controller()
-    blockedKeys = {f"f{i}" for i in range(1, 13)} | {"tab", "backspace", "esc"}
-
-    def translateKey(key):
-        keyLower = key.lower() if isinstance(key, str) else key
-        if isinstance(keyLower, str) and keyLower in specialKeyMap:
-            return specialKeyMap[keyLower]
-        elif isinstance(keyLower, str) and len(keyLower) == 1:
-            return keyLower
-        elif isinstance(key, pynputKeyboard.Key):
-            return key
-        else:
-            raise ValueError(f"Unsupported key for pynput: {key}")
-
-    def isBlockedKey(keyObj):
-        if isinstance(keyObj, str):
-            return keyObj.lower() in blockedKeys
-        if isinstance(keyObj, pynputKeyboard.Key):
-            name = getattr(keyObj, "name", None)
-            if isinstance(name, str) and name.lower() in blockedKeys:
-                return True
-            s = str(keyObj).lower()
-            if s.startswith("key.f") and any(s.startswith(f"key.f{i}") for i in range(1, 13)):
-                return True
-            return False
-        return False
-
-    def press(key):
+        heldKeys.add(key)
+    else:
+        controller = getPynputController()
+        if not controller:
+            return
         keyObj = translateKey(key)
         if isBlockedKey(keyObj):
             return
-        pynputController.press(keyObj)
+        controller.press(keyObj)
         logKeys("press", keyObj)
         heldKeys.add(keyObj)
 
-    def release(key):
+def release(key):
+    inputMod = configuration.configData.get("midiPlayer", {}).get("inputModule", "pynput")
+    if inputMod == "uinput":
+        if uinputHelper.releaseKey(key):
+            logKeys("release", key)
+        if key in heldKeys:
+            heldKeys.remove(key)
+    elif inputMod == "keyboard":
+        keyboard.release(key)
+        logKeys("release", key)
+        if key in heldKeys:
+            heldKeys.remove(key)
+    else:
+        controller = getPynputController()
+        if not controller:
+            return
         keyObj = translateKey(key)
         if isBlockedKey(keyObj):
             return
-        pynputController.release(keyObj)
+        controller.release(keyObj)
         logKeys("release", keyObj)
         if keyObj in heldKeys:
             heldKeys.remove(keyObj)

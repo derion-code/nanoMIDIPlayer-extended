@@ -10,3 +10,4 @@ tkinterweb[svg]
 pygments
 pyinstaller
 emoji
+evdev

@@ -371,11 +371,14 @@ class SettingsTab(ctk.CTkFrame):
         self.midiModuleSelector.grid(row=6, column=0, padx=(0, 180), pady=(0, 10), sticky="es")
         ToolTip.CreateToolTip(self.midiModuleSelector, text = 'Preffered module for simulating keypress')
         
-        if osName != "Windows":
+        if osName == "Linux":
+            self.midiModuleSelector.configure(values=["pynput", "uinput", "keyboard"])
+            self.midiModuleSelector.set(configuration.configData.get("midiPlayer", {}).get("inputModule", "pynput"))
+        elif osName == "Windows":
+            self.midiModuleSelector.set(configuration.configData.get("midiPlayer", {}).get("inputModule", "pynput"))
+        else:
             self.midiModuleSelector.set("Unavailable")
             self.midiModuleSelector.configure(state="disabled")
-        else:
-            self.midiModuleSelector.set(configuration.configData.get("midiPlayer", {}).get("inputModule", "pynput"))
 
         # DRUMS MACRO SECTION
         self.drumsSettingsLabel = ctk.CTkLabel(
@@ -609,11 +612,14 @@ class SettingsTab(ctk.CTkFrame):
         self.drumsModuleSelector.grid(row=10, column=0, padx=(20, 0), pady=(30, 10), sticky="sw")
         ToolTip.CreateToolTip(self.drumsModuleSelector, text = 'Preffered module for simulating keypress')
 
-        if osName != "Windows":
+        if osName == "Linux":
+            self.drumsModuleSelector.configure(values=["pynput", "uinput", "keyboard"])
+            self.drumsModuleSelector.set(configuration.configData.get("drumsMacro", {}).get("inputModule", "pynput"))
+        elif osName == "Windows":
+            self.drumsModuleSelector.set(configuration.configData.get("drumsMacro", {}).get("inputModule", "pynput"))
+        else:
             self.drumsModuleSelector.set("Unavailable")
             self.drumsModuleSelector.configure(state="disabled")
-        else:
-            self.drumsModuleSelector.set(configuration.configData.get("drumsMacro", {}).get("inputModule", "pynput"))
 
         # APPEARANCE SETTINGS
         self.appUISettingsLabel = ctk.CTkLabel(

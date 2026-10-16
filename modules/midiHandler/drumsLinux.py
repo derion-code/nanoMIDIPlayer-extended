@@ -3,7 +3,10 @@ import time
 import random
 import threading
 import keyboard
-from pynput import keyboard as pynputKeyboard
+try:
+    from pynput import keyboard as pynputKeyboard
+except Exception:
+    pynputKeyboard = None
 
 from modules import configuration
 from modules.functions import mainFunctions
@@ -15,7 +18,7 @@ heldKeys = set()
 log = mainFunctions.log
 
 def logKeys(action, key):
-    if isinstance(key, pynputKeyboard.Key):
+    if pynputKeyboard and isinstance(key, getattr(pynputKeyboard, "Key", ())):
         keyName = key.name if key.name else str(key)
     else:
         keyName = str(key)
@@ -28,53 +31,87 @@ def logKeys(action, key):
     else:
         log(f"{action}: {keyName}")
 
-if selectedModule == "keyboard":
-    def press(key):
+from modules.midiHandler import uinputHelper
+
+pynputController = None
+
+def getPynputController():
+    global pynputController
+    if pynputKeyboard is None:
+        log("pynput is unavailable in this environment.")
+        return None
+    if pynputController is None:
+        try:
+            pynputController = pynputKeyboard.Controller()
+        except Exception as e:
+            log(f"Failed to initialize pynput controller: {e}")
+    return pynputController
+
+blockedKeys = {f"f{i}" for i in range(1, 13)} | {"tab", "backspace", "esc"}
+
+def translateKey(key):
+    keyLower = key.lower() if isinstance(key, str) else key
+    if isinstance(keyLower, str) and len(keyLower) == 1:
+        return keyLower
+    elif pynputKeyboard and isinstance(key, getattr(pynputKeyboard, "Key", ())):
+        return key
+    else:
+        raise ValueError(f"Unsupported key: {key}")
+
+def isBlockedKey(keyObj):
+    if isinstance(keyObj, str):
+        return keyObj.lower() in blockedKeys
+    if pynputKeyboard and isinstance(keyObj, getattr(pynputKeyboard, "Key", ())):
+        name = getattr(keyObj, "name", None)
+        if isinstance(name, str) and name.lower() in blockedKeys:
+            return True
+        s = str(keyObj).lower()
+        if s.startswith("key.f") and any(s.startswith(f"key.f{i}") for i in range(1, 13)):
+            return True
+        return False
+    return False
+
+def press(key):
+    inputMod = configuration.configData.get("drumsMacro", {}).get("inputModule", "pynput")
+    if inputMod == "uinput":
+        if uinputHelper.pressKey(key):
+            logKeys("press", key)
+            heldKeys.add(key)
+    elif inputMod == "keyboard":
         keyboard.press(key)
         logKeys("press", key)
-    def release(key):
-        keyboard.release(key)
-        logKeys("release", key)
-
-elif selectedModule == "pynput":
-    pynputController = pynputKeyboard.Controller()
-    blockedKeys = {f"f{i}" for i in range(1, 13)} | {"tab", "backspace", "esc"}
-
-    def translateKey(key):
-        keyLower = key.lower() if isinstance(key, str) else key
-        if isinstance(keyLower, str) and len(keyLower) == 1:
-            return keyLower
-        elif isinstance(key, pynputKeyboard.Key):
-            return key
-        else:
-            raise ValueError(f"Unsupported key: {key}")
-
-    def isBlockedKey(keyObj):
-        if isinstance(keyObj, str):
-            return keyObj.lower() in blockedKeys
-        if isinstance(keyObj, pynputKeyboard.Key):
-            name = getattr(keyObj, "name", None)
-            if isinstance(name, str) and name.lower() in blockedKeys:
-                return True
-            s = str(keyObj).lower()
-            if s.startswith("key.f") and any(s.startswith(f"key.f{i}") for i in range(1, 13)):
-                return True
-            return False
-        return False
-
-    def press(key):
+        heldKeys.add(key)
+    else:
+        controller = getPynputController()
+        if not controller:
+            return
         keyObj = translateKey(key)
         if isBlockedKey(keyObj):
             return
-        pynputController.press(keyObj)
+        controller.press(keyObj)
         logKeys("press", keyObj)
         heldKeys.add(keyObj)
 
-    def release(key):
+def release(key):
+    inputMod = configuration.configData.get("drumsMacro", {}).get("inputModule", "pynput")
+    if inputMod == "uinput":
+        if uinputHelper.releaseKey(key):
+            logKeys("release", key)
+        if key in heldKeys:
+            heldKeys.remove(key)
+    elif inputMod == "keyboard":
+        keyboard.release(key)
+        logKeys("release", key)
+        if key in heldKeys:
+            heldKeys.remove(key)
+    else:
+        controller = getPynputController()
+        if not controller:
+            return
         keyObj = translateKey(key)
         if isBlockedKey(keyObj):
             return
-        pynputController.release(keyObj)
+        controller.release(keyObj)
         logKeys("release", keyObj)
         if keyObj in heldKeys:
             heldKeys.remove(keyObj)

@@ -152,11 +152,18 @@ class App(ctk.CTk):
 
         parser = argparse.ArgumentParser(description='nanoMIDIPlayer')
         parser.add_argument('--debug', action='store_true', help='debug console')
+        parser.add_argument('--input-module', choices=['pynput', 'keyboard', 'uinput'], help='preferred input simulation module')
         args = parser.parse_args()
 
         if args.debug:
             settingsFunctions.openConsole()
             print("console opened.")
+
+        if args.input_module:
+            configuration.configData["midiPlayer"]["inputModule"] = args.input_module
+            configuration.configData["midiToQwerty"]["inputModule"] = args.input_module
+            configuration.configData["drumsMacro"]["inputModule"] = args.input_module
+            logger.info(f"Input module set via CLI: {args.input_module}")
 
         self.frames = {
             "midi": MidiPlayerTab(self.contentFrame),

@@ -237,11 +237,14 @@ class MidiToQwertyTab(ctk.CTkFrame):
 
         self.moduleSelector.grid(row=5, column=0, padx=(0, 265), pady=(0, 0), sticky="es")
         
-        if osName != "Windows":
+        if osName == "Linux":
+            self.moduleSelector.configure(values=["pynput", "uinput", "keyboard"])
+            self.moduleSelector.set(configuration.configData.get("midiToQwerty", {}).get("inputModule", "pynput"))
+        elif osName == "Windows":
+            self.moduleSelector.set(configuration.configData.get("midiToQwerty", {}).get("inputModule", "pynput"))
+        else:
             self.moduleSelector.set("Unavailable")
             self.moduleSelector.configure(state="disabled")
-        else:
-            self.moduleSelector.set(configuration.configData.get("midiToQwerty", {}).get("inputModule", "pynput"))
         
         ToolTip.CreateToolTip(self.moduleSelector, text = 'Module for simulating keypresses')
 
