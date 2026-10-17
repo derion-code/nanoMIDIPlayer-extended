@@ -42,6 +42,59 @@ switchNoDoublesvar.set("on" if configuration.configData.get('midiPlayer', {}).ge
 switchVelocityvar.set("on" if configuration.configData.get('midiPlayer', {}).get('velocity', False) else "off")
 switch88Keysvar.set("on" if configuration.configData.get('midiPlayer', {}).get('88Keys', False) else "off")
 
+isUserDragging = False
+initialSeekTime = 0.0
+
+def onSliderPress(event=None):
+    global isUserDragging
+    isUserDragging = True
+
+def onSliderDrag(value):
+    try:
+        val = int(float(value))
+        totalTime = int(float(MidiPlayerTab.timelineSlider.cget("to")))
+        formattedVal = str(datetime.timedelta(seconds=val))
+        formattedTotal = str(datetime.timedelta(seconds=totalTime))
+        if configuration.configData['appUI']['timestamp']:
+            text = f"{formattedVal} / {formattedTotal}"
+        else:
+            text = f"X:XX:XX / {formattedTotal}"
+        MidiPlayerTab.timelineIndicator.configure(text=text)
+    except Exception as e:
+        logger.debug(f"onSliderDrag error: {e}")
+
+def onSliderRelease(event=None):
+    global isUserDragging, initialSeekTime
+    isUserDragging = False
+    try:
+        targetSeconds = float(MidiPlayerTab.timelineSlider.get())
+        totalTime = int(float(MidiPlayerTab.timelineSlider.cget("to")))
+        formattedTarget = str(datetime.timedelta(seconds=int(targetSeconds)))
+        formattedTotal = str(datetime.timedelta(seconds=totalTime))
+        if configuration.configData['appUI']['timestamp']:
+            text = f"{formattedTarget} / {formattedTotal}"
+        else:
+            text = f"X:XX:XX / {formattedTotal}"
+        MidiPlayerTab.timelineIndicator.configure(text=text)
+
+        if app and app.isRunning:
+            seekPlayback(targetSeconds)
+        else:
+            initialSeekTime = targetSeconds
+    except Exception as e:
+        logger.exception(f"onSliderRelease error: {e}")
+
+def seekPlayback(targetSeconds):
+    logger.info(f"seekPlayback called: {targetSeconds}")
+    try:
+        useMIDI = configuration.configData["midiPlayer"]['useMIDIOutput']
+        if useMIDI:
+            useOutput.seekPlayback(targetSeconds)
+        else:
+            midiHandler.seekPlayback(targetSeconds)
+    except Exception as e:
+        logger.exception(f"seekPlayback error: {e}")
+
 def switchUseMIDI():
     logger.info("switchUseMIDI called")
     try:
@@ -96,6 +149,9 @@ def selectFile():
         unbindControls()
         stopPlayback()
         MidiPlayerTab.timelineIndicator.configure(text="0:00:00 / 0:00:00")
+        if hasattr(MidiPlayerTab, "timelineSlider"):
+            MidiPlayerTab.timelineSlider.configure(from_=0, to=100, state="disabled")
+            MidiPlayerTab.timelineSlider.set(0)
         MidiPlayerTab.playButton.configure(text="Play")
 
         filePath = filedialog.askopenfilename(filetypes=[("MIDI files", "*.mid"), ("MIDI files", "*.midi")])
@@ -116,6 +172,9 @@ def selectFile():
                 else f"X:XX:XX / {str(datetime.timedelta(seconds=int(time)))}"
             )
             MidiPlayerTab.timelineIndicator.configure(text=timelineText)
+            if hasattr(MidiPlayerTab, "timelineSlider"):
+                MidiPlayerTab.timelineSlider.configure(from_=0, to=max(1, int(time)), state="normal")
+                MidiPlayerTab.timelineSlider.set(0)
 
             configuration.configData['midiPlayer']['currentFile'] = filePath
 
@@ -169,6 +228,9 @@ def loadSavedFile():
             totalTime = midiFileData.length
             timelineText = f"0:00:00 / {str(datetime.timedelta(seconds=int(totalTime)))}" if configuration.configData['appUI']['timestamp'] else f"X:XX:XX / {str(datetime.timedelta(seconds=int(totalTime)))}"
             MidiPlayerTab.timelineIndicator.configure(text=timelineText)
+            if hasattr(MidiPlayerTab, "timelineSlider"):
+                MidiPlayerTab.timelineSlider.configure(from_=0, to=max(1, int(totalTime)), state="normal")
+                MidiPlayerTab.timelineSlider.set(0)
             logger.debug(f"loaded currentFile: {currentFile}")
             return
         
@@ -181,11 +243,17 @@ def loadSavedFile():
             totalTime = midiFileData.length
             timelineText = f"0:00:00 / {str(datetime.timedelta(seconds=int(totalTime)))}" if configuration.configData['appUI']['timestamp'] else f"X:XX:XX / {str(datetime.timedelta(seconds=int(totalTime)))}"
             MidiPlayerTab.timelineIndicator.configure(text=timelineText)
+            if hasattr(MidiPlayerTab, "timelineSlider"):
+                MidiPlayerTab.timelineSlider.configure(from_=0, to=max(1, int(totalTime)), state="normal")
+                MidiPlayerTab.timelineSlider.set(0)
             logger.debug(f"loaded firstFile: {firstFile}")
             return
         
         MidiPlayerTab.filePathEntry.set("None")
         MidiPlayerTab.timelineIndicator.configure(text="0:00:00 / 0:00:00")
+        if hasattr(MidiPlayerTab, "timelineSlider"):
+            MidiPlayerTab.timelineSlider.configure(from_=0, to=100, state="disabled")
+            MidiPlayerTab.timelineSlider.set(0)
         logger.debug("no saved files found")
     except Exception as e:
         logger.exception(f"loadSavedFile error: {e}")
@@ -201,6 +269,9 @@ def switchMidiEvent(event=None):
         totalTime = midiFileData.length
         timelineText = f"0:00:00 / {str(datetime.timedelta(seconds=int(totalTime)))}" if configuration.configData['appUI']['timestamp'] else f"X:XX:XX / {str(datetime.timedelta(seconds=int(totalTime)))}"
         MidiPlayerTab.timelineIndicator.configure(text=timelineText)
+        if hasattr(MidiPlayerTab, "timelineSlider"):
+            MidiPlayerTab.timelineSlider.configure(from_=0, to=max(1, int(totalTime)), state="normal")
+            MidiPlayerTab.timelineSlider.set(0)
         bindControls()
         logger.debug(f"switched midi file to: {midiFile}")
     except Exception as e:
@@ -272,6 +343,22 @@ def startPlayback():
 
         useMIDI = configuration.configData["midiPlayer"]['useMIDIOutput']
 
+        seekOffset = initialSeekTime
+        initialSeekTime = 0.0
+
+        def updateTimeline(text, currentSeconds=None):
+            def _update():
+                MidiPlayerTab.timelineIndicator.configure(text=text)
+                if currentSeconds is not None and not isUserDragging and hasattr(MidiPlayerTab, "timelineSlider"):
+                    MidiPlayerTab.timelineSlider.set(currentSeconds)
+            if app and hasattr(app, "after"):
+                try:
+                    app.after(0, _update)
+                except Exception:
+                    _update()
+            else:
+                _update()
+
         if useMIDI:
             outputDevice = MidiPlayerTab.outputDeviceDropdown.get()
             logger.debug(f"outputDevice selected: {outputDevice}")
@@ -287,10 +374,7 @@ def startPlayback():
             )
             MidiPlayerTab.stopButton.configure(state="normal", fg_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["StopColor"])
 
-            def updateTimeline(text):
-                MidiPlayerTab.timelineIndicator.after(0, lambda: MidiPlayerTab.timelineIndicator.configure(text=text))
-
-            useOutput.startPlayback(midiFile, outputDevice, updateCallback=updateTimeline)
+            useOutput.startPlayback(midiFile, outputDevice, updateCallback=updateTimeline, startTimeOffset=seekOffset)
             logger.debug("useOutput.startPlayback called")
 
         elif app and not app.isRunning:
@@ -302,17 +386,16 @@ def startPlayback():
             )
             MidiPlayerTab.stopButton.configure(state="normal", fg_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["StopColor"])
 
-            def updateTimeline(text):
-                MidiPlayerTab.timelineIndicator.after(0, lambda: MidiPlayerTab.timelineIndicator.configure(text=text))
-
-            midiHandler.startPlayback(midiFile, updateCallback=updateTimeline)
+            midiHandler.startPlayback(midiFile, updateCallback=updateTimeline, startTimeOffset=seekOffset)
             logger.debug("midiHandler.startPlayback called")
     except Exception as e:
         logger.exception(f"startPlayback error: {e}")
 
 def stopPlayback():
+    global initialSeekTime
     logger.info("stopPlayback called")
     try:
+        initialSeekTime = 0.0
         if not app.isRunning:
             return
         app.isRunning = False
@@ -339,6 +422,9 @@ def stopPlayback():
                 fg_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["PlayColor"],
                 hover_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["PlayColorHover"]
             )
+
+            if not isUserDragging and hasattr(MidiPlayerTab, "timelineSlider"):
+                MidiPlayerTab.timelineSlider.set(0)
 
             midiFile = MidiPlayerTab.filePathEntry.get()
             if os.path.exists(midiFile):

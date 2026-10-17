@@ -29,6 +29,55 @@ elif osName == "Linux":
 
 app = mainFunctions.getApp()
 
+isUserDragging = False
+initialSeekTime = 0.0
+
+def onSliderPress(event=None):
+    global isUserDragging
+    isUserDragging = True
+
+def onSliderDrag(value):
+    try:
+        val = int(float(value))
+        totalTime = int(float(DrumsMacroTab.timelineSlider.cget("to")))
+        formattedVal = str(datetime.timedelta(seconds=val))
+        formattedTotal = str(datetime.timedelta(seconds=totalTime))
+        if configuration.configData['appUI']['timestamp']:
+            text = f"{formattedVal} / {formattedTotal}"
+        else:
+            text = f"X:XX:XX / {formattedTotal}"
+        DrumsMacroTab.timelineIndicator.configure(text=text)
+    except Exception as e:
+        logger.debug(f"onSliderDrag error: {e}")
+
+def onSliderRelease(event=None):
+    global isUserDragging, initialSeekTime
+    isUserDragging = False
+    try:
+        targetSeconds = float(DrumsMacroTab.timelineSlider.get())
+        totalTime = int(float(DrumsMacroTab.timelineSlider.cget("to")))
+        formattedTarget = str(datetime.timedelta(seconds=int(targetSeconds)))
+        formattedTotal = str(datetime.timedelta(seconds=totalTime))
+        if configuration.configData['appUI']['timestamp']:
+            text = f"{formattedTarget} / {formattedTotal}"
+        else:
+            text = f"X:XX:XX / {formattedTotal}"
+        DrumsMacroTab.timelineIndicator.configure(text=text)
+
+        if app and app.isRunning:
+            seekPlayback(targetSeconds)
+        else:
+            initialSeekTime = targetSeconds
+    except Exception as e:
+        logger.exception(f"onSliderRelease error: {e}")
+
+def seekPlayback(targetSeconds):
+    logger.info(f"drums seekPlayback called: {targetSeconds}")
+    try:
+        midiHandler.seekPlayback(targetSeconds)
+    except Exception as e:
+        logger.exception(f"drums seekPlayback error: {e}")
+
 def selectFile():
     logger.info("selectFile called")
     try:
@@ -36,6 +85,9 @@ def selectFile():
         unbindControls()
         stopPlayback()
         DrumsMacroTab.timelineIndicator.configure(text="0:00:00 / 0:00:00")
+        if hasattr(DrumsMacroTab, "timelineSlider"):
+            DrumsMacroTab.timelineSlider.configure(from_=0, to=100, state="disabled")
+            DrumsMacroTab.timelineSlider.set(0)
         DrumsMacroTab.playButton.configure(text="Play")
 
         filePath = filedialog.askopenfilename(filetypes=[("MIDI files", "*.mid"), ("MIDI files", "*.midi")])
@@ -56,6 +108,9 @@ def selectFile():
                 else f"X:XX:XX / {str(datetime.timedelta(seconds=int(timeLength)))}"
             )
             DrumsMacroTab.timelineIndicator.configure(text=timelineText)
+            if hasattr(DrumsMacroTab, "timelineSlider"):
+                DrumsMacroTab.timelineSlider.configure(from_=0, to=max(1, int(timeLength)), state="normal")
+                DrumsMacroTab.timelineSlider.set(0)
 
             configuration.configData['drumsMacro']['currentFile'] = filePath
 
@@ -99,6 +154,9 @@ def loadSavedFile():
             totalTime = midiFileData.length
             timelineText = f"0:00:00 / {str(datetime.timedelta(seconds=int(totalTime)))}" if configuration.configData['appUI']['timestamp'] else f"X:XX:XX / {str(datetime.timedelta(seconds=int(totalTime)))}"
             DrumsMacroTab.timelineIndicator.configure(text=timelineText)
+            if hasattr(DrumsMacroTab, "timelineSlider"):
+                DrumsMacroTab.timelineSlider.configure(from_=0, to=max(1, int(totalTime)), state="normal")
+                DrumsMacroTab.timelineSlider.set(0)
             logger.debug(f"loaded currentFile: {currentFile}")
             return
 
@@ -111,11 +169,17 @@ def loadSavedFile():
             totalTime = midiFileData.length
             timelineText = f"0:00:00 / {str(datetime.timedelta(seconds=int(totalTime)))}" if configuration.configData['appUI']['timestamp'] else f"X:XX:XX / {str(datetime.timedelta(seconds=int(totalTime)))}"
             DrumsMacroTab.timelineIndicator.configure(text=timelineText)
+            if hasattr(DrumsMacroTab, "timelineSlider"):
+                DrumsMacroTab.timelineSlider.configure(from_=0, to=max(1, int(totalTime)), state="normal")
+                DrumsMacroTab.timelineSlider.set(0)
             logger.debug(f"loaded firstFile: {firstFile}")
             return
 
         DrumsMacroTab.midiPathDropdown.set("None")
         DrumsMacroTab.timelineIndicator.configure(text="0:00:00 / 0:00:00")
+        if hasattr(DrumsMacroTab, "timelineSlider"):
+            DrumsMacroTab.timelineSlider.configure(from_=0, to=100, state="disabled")
+            DrumsMacroTab.timelineSlider.set(0)
         logger.debug("no saved files found")
     except Exception as e:
         logger.exception(f"loadSavedFile error: {e}")
@@ -131,6 +195,9 @@ def switchMidiEvent(event=None):
         totalTime = midiFileData.length
         timelineText = f"0:00:00 / {str(datetime.timedelta(seconds=int(totalTime)))}" if configuration.configData['appUI']['timestamp'] else f"X:XX:XX / {str(datetime.timedelta(seconds=int(totalTime)))}"
         DrumsMacroTab.timelineIndicator.configure(text=timelineText)
+        if hasattr(DrumsMacroTab, "timelineSlider"):
+            DrumsMacroTab.timelineSlider.configure(from_=0, to=max(1, int(totalTime)), state="normal")
+            DrumsMacroTab.timelineSlider.set(0)
         bindControls()
         logger.debug(f"switched midi file to: {midiFile}")
     except Exception as e:
@@ -255,17 +322,32 @@ def startPlayback():
             )
             DrumsMacroTab.stopButton.configure(state="normal", fg_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["StopColor"])
 
-            def updateTimeline(text):
-                DrumsMacroTab.timelineIndicator.after(0, lambda: DrumsMacroTab.timelineIndicator.configure(text=text))
+            seekOffset = initialSeekTime
+            initialSeekTime = 0.0
 
-            midiHandler.startPlayback(midiFile, updateCallback=updateTimeline)
+            def updateTimeline(text, currentSeconds=None):
+                def _update():
+                    DrumsMacroTab.timelineIndicator.configure(text=text)
+                    if currentSeconds is not None and not isUserDragging and hasattr(DrumsMacroTab, "timelineSlider"):
+                        DrumsMacroTab.timelineSlider.set(currentSeconds)
+                if app and hasattr(app, "after"):
+                    try:
+                        app.after(0, _update)
+                    except Exception:
+                        _update()
+                else:
+                    _update()
+
+            midiHandler.startPlayback(midiFile, updateCallback=updateTimeline, startTimeOffset=seekOffset)
             logger.debug("midiHandler.startPlayback called")
     except Exception as e:
         logger.exception(f"startPlayback error: {e}")
 
 def stopPlayback():
+    global initialSeekTime
     logger.info("stopPlayback called")
     try:
+        initialSeekTime = 0.0
         if not app.isRunning:
             return
         app.isRunning = False
@@ -286,6 +368,9 @@ def stopPlayback():
                 fg_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["PlayColor"],
                 hover_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["PlayColorHover"]
             )
+
+            if not isUserDragging and hasattr(DrumsMacroTab, "timelineSlider"):
+                DrumsMacroTab.timelineSlider.set(0)
 
             midiFile = DrumsMacroTab.midiPathDropdown.get()
             if os.path.exists(midiFile):

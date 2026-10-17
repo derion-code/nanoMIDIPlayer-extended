@@ -3,6 +3,7 @@ import time
 import random
 import threading
 import keyboard
+import bisect
 try:
     from pynput import keyboard as pynputKeyboard
 except Exception:
@@ -141,6 +142,11 @@ drumsMap = {
 }
 
 stopEvent = threading.Event()
+seekEvent = threading.Event()
+clockSeekEvent = threading.Event()
+seekTargetTime = 0.0
+seekLock = threading.Lock()
+totalSongDuration = 0.0
 clockThreadRef = None
 playThread = None
 timerList = []
@@ -149,6 +155,17 @@ closeThread = False
 playbackSpeed = 1.0
 keyboardHandlers = []
 heldNoteCount = 0
+
+def seekPlayback(targetSeconds):
+    global seekTargetTime, totalSongDuration
+    with seekLock:
+        if totalSongDuration > 0:
+            seekTargetTime = max(0.0, min(float(targetSeconds), float(totalSongDuration)))
+        else:
+            seekTargetTime = max(0.0, float(targetSeconds))
+        seekEvent.set()
+        clockSeekEvent.set()
+    log(f"Drums seek requested to {seekTargetTime:.2f}s")
 
 def getDrumsFingerLimit():
     return int(configuration.configData.get("drumsMacro", {}).get("fingerLimit", 11))
@@ -182,43 +199,117 @@ def parseMidi(message):
             release(key)
             heldNoteCount = max(0, heldNoteCount - 1)
 
-def playMidiOnce(filePath):
+def playMidiOnce(filePath, startTimeOffset=0.0):
+    global heldNoteCount, totalSongDuration
     mid = mido.MidiFile(filePath, clip=True)
-    startTime = time.monotonic()
-    currentTime = 0
+    messages = []
+    t = 0.0
     for msg in mid:
+        t += msg.time
+        messages.append((t, msg))
+    
+    totalSongDuration = messages[-1][0] if messages else 0.0
+
+    idx = 0
+    if startTimeOffset > 0:
+        clampedTarget = max(0.0, min(float(startTimeOffset), float(totalSongDuration)))
+        idx = bisect.bisect_left(messages, clampedTarget, key=lambda x: x[0])
+        if idx >= len(messages):
+            return True
+        firstDelay = max(0.0, messages[idx][0] - clampedTarget) / playbackSpeed
+    else:
+        firstDelay = (messages[0][0] / playbackSpeed) if messages else 0.0
+
+    startTime = time.monotonic()
+    currentTime = firstDelay
+
+    while idx < len(messages):
         if stopEvent.is_set() or closeThread:
             return False
-        adjustedDelay = msg.time / playbackSpeed
-        if configuration.configData["drumsMacro"]["randomFail"]["enabled"] and not msg.is_meta:
-            if random.random() < configuration.configData["drumsMacro"]["randomFail"]["speed"] / 100:
-                speedFactor = random.uniform(0.5, 1.5)
-                adjustedDelay *= speedFactor
-        currentTime += adjustedDelay
+
+        if seekEvent.is_set():
+            with seekLock:
+                seekEvent.clear()
+                targetSeconds = seekTargetTime
+
+            for key in list(heldKeys):
+                try:
+                    release(key)
+                except Exception:
+                    pass
+            heldNoteCount = 0
+            for t_item in list(timerList):
+                try:
+                    t_item.cancel()
+                except Exception:
+                    pass
+            timerList.clear()
+
+            clampedTarget = max(0.0, min(float(targetSeconds), float(totalSongDuration)))
+            idx = bisect.bisect_left(messages, clampedTarget, key=lambda x: x[0])
+            if idx >= len(messages):
+                return True
+
+            startTime = time.monotonic()
+            firstDelay = max(0.0, messages[idx][0] - clampedTarget) / playbackSpeed
+            currentTime = firstDelay
+            continue
+
+        msgTime, msg = messages[idx]
         targetTime = startTime + currentTime
+
         while time.monotonic() < targetTime:
             if stopEvent.is_set() or closeThread:
                 return False
+
+            if seekEvent.is_set():
+                break
+
             while paused and not (stopEvent.is_set() or closeThread):
+                if seekEvent.is_set():
+                    break
                 pauseStart = time.monotonic()
-                time.sleep(0.05)
+                if seekEvent.wait(timeout=0.05):
+                    break
                 pauseDuration = time.monotonic() - pauseStart
                 startTime += pauseDuration
                 targetTime += pauseDuration
+
+            if seekEvent.is_set():
+                break
+
             remaining = targetTime - time.monotonic()
             if remaining > 0:
                 sleepChunk = min(remaining, 0.005)
-                time.sleep(sleepChunk)
-        if msg.is_meta:
+                if seekEvent.wait(timeout=sleepChunk):
+                    break
+
+        if seekEvent.is_set():
             continue
-        parseMidi(msg)
+
+        if not msg.is_meta:
+            parseMidi(msg)
+
+        idx += 1
+        if idx < len(messages):
+            nextMsg = messages[idx][1]
+            adjustedDelay = nextMsg.time / playbackSpeed
+            if configuration.configData["drumsMacro"]["randomFail"]["enabled"] and not nextMsg.is_meta:
+                if random.random() < configuration.configData["drumsMacro"]["randomFail"]["speed"] / 100:
+                    speedFactor = random.uniform(0.5, 1.5)
+                    adjustedDelay *= speedFactor
+            currentTime += adjustedDelay
+
     return True
 
-def playMidiFile(filePath):
+def playMidiFile(filePath, startTimeOffset=0.0):
     crashed = False
     try:
+        firstPlay = True
         while not (stopEvent.is_set() or closeThread):
-            finished = playMidiOnce(filePath)
+            offset = startTimeOffset if firstPlay else 0.0
+            firstPlay = False
+            finished = playMidiOnce(filePath, startTimeOffset=offset)
             if not configuration.configData["drumsMacro"]["loopSong"] or not finished or stopEvent.is_set() or closeThread:
                 break
             for key in list(heldKeys):
@@ -251,36 +342,58 @@ def formatTime(seconds):
     secs = int(seconds % 60)
     return f"{hours:0}:{minutes:02}:{secs:02}"
 
-def clockThread(totalSeconds, updateCallback=None):
+def clockThread(totalSeconds, updateCallback=None, initialSeconds=0):
     global closeThread, playbackSpeed, paused
-    currentSeconds = 0
+    currentSeconds = int(initialSeconds)
     while not (stopEvent.is_set() or closeThread):
-        if not paused:
-            shown = currentSeconds % max(1, int(totalSeconds))
+        if clockSeekEvent.is_set():
+            with seekLock:
+                clockSeekEvent.clear()
+                currentSeconds = int(seekTargetTime)
+            shown = min(int(totalSeconds), max(0, currentSeconds))
             formattedTime = f"{formatTime(shown)} / {formatTime(totalSeconds)}"
             if configuration.configData['appUI']['timestamp']:
                 if updateCallback:
-                    updateCallback(formattedTime)
+                    try:
+                        updateCallback(formattedTime, currentSeconds)
+                    except TypeError:
+                        updateCallback(formattedTime)
+                else:
+                    log(formattedTime)
+
+        if not paused:
+            shown = min(int(totalSeconds), max(0, currentSeconds % max(1, int(totalSeconds))))
+            formattedTime = f"{formatTime(shown)} / {formatTime(totalSeconds)}"
+            if configuration.configData['appUI']['timestamp']:
+                if updateCallback:
+                    try:
+                        updateCallback(formattedTime, currentSeconds)
+                    except TypeError:
+                        updateCallback(formattedTime)
                 else:
                     log(formattedTime)
             currentSeconds += 1
             for _ in range(10):
-                if stopEvent.is_set() or closeThread:
+                if stopEvent.is_set() or closeThread or clockSeekEvent.is_set():
                     break
                 time.sleep(0.1 / playbackSpeed)
         else:
-            time.sleep(0.1)
+            if clockSeekEvent.wait(timeout=0.1):
+                pass
 
-def startPlayback(filePath, updateCallback=None):
-    global playThread, stopEvent, clockThreadRef, closeThread, paused
+def startPlayback(filePath, updateCallback=None, startTimeOffset=0.0):
+    global playThread, stopEvent, clockThreadRef, closeThread, paused, seekEvent, clockSeekEvent, totalSongDuration
     stopEvent.clear()
+    seekEvent.clear()
+    clockSeekEvent.clear()
     closeThread = False
     paused = False
     if playThread is not None and isinstance(playThread, threading.Thread) and playThread.is_alive():
         return
     totalSeconds = mido.MidiFile(filePath, clip=True).length
-    playThread = threading.Thread(target=playMidiFile, args=(filePath,), daemon=True)
-    clockThreadRef = threading.Thread(target=clockThread, args=(totalSeconds, updateCallback), daemon=True)
+    totalSongDuration = totalSeconds
+    playThread = threading.Thread(target=playMidiFile, args=(filePath, startTimeOffset), daemon=True)
+    clockThreadRef = threading.Thread(target=clockThread, args=(totalSeconds, updateCallback, startTimeOffset), daemon=True)
     clockThreadRef.start()
     playThread.start()
 
