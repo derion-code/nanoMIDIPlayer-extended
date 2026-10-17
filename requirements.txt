@@ -10,4 +10,4 @@ tkinterweb[svg]
 pygments
 pyinstaller
 emoji
-evdev
+evdev; sys_platform == 'linux'

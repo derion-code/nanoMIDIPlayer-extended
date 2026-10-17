@@ -13,7 +13,9 @@ configFile = "config.json"
 configPath = os.path.join(baseDirectory, configFile)
 
 def resourcePath(relativePath):
-    if hasattr(sys, '_MEIPASS'):
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        basePath = sys._MEIPASS
+    elif hasattr(sys, '_MEIPASS'):
         basePath = sys._MEIPASS
     else:
         basePath = os.path.abspath(".")

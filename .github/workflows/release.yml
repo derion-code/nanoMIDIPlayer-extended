@@ -1,0 +1,350 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows (exe)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip setuptools wheel pyinstaller
+          python -m pip install -r requirements.txt
+
+      - name: Build Windows .exe
+        shell: pwsh
+        run: |
+          pyinstaller --onefile --noconsole --noconfirm `
+            --exclude-module evdev `
+            --exclude-module uinput `
+            --hidden-import=PIL._tkinter_finder `
+            --collect-all customtkinter `
+            --collect-all tkinterweb `
+            --collect-all emoji `
+            --collect-all pynput `
+            --collect-all Xlib `
+            --collect-all evdev `
+            --collect-all keyboard `
+            --hidden-import=mido.backends.rtmidi `
+            --add-data="assets;assets" `
+            --paths="." `
+            --name="nanoMIDIPlayer" `
+            --icon="assets/icons/integrated/icon.ico" `
+            main.py
+
+      - name: Package Windows ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/nanoMIDIPlayer.exe -DestinationPath dist/nanoMIDIPlayer-windows-x64.zip
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: dist/nanoMIDIPlayer-windows-x64.zip
+
+  build-macos:
+    name: Build macOS (dmg)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          brew install create-dmg
+          python3 -m pip install --upgrade pip setuptools wheel pyinstaller
+          python3 -m pip install -r requirements.txt
+
+      - name: Build macOS .app
+        run: |
+          pyinstaller --onefile --noconsole --noconfirm \
+            --exclude-module evdev \
+            --exclude-module uinput \
+            --hidden-import=PIL._tkinter_finder \
+            --collect-all customtkinter \
+            --collect-all tkinterweb \
+            --collect-all emoji \
+            --collect-all pynput \
+            --collect-all Xlib \
+            --collect-all evdev \
+            --collect-all keyboard \
+            --hidden-import=mido.backends.rtmidi \
+            --hidden-import=tkinter \
+            --hidden-import=_tkinter \
+            --add-data="assets:assets" \
+            --paths="." \
+            --name="nanoMIDIPlayer" \
+            --icon="assets/icons/integrated/icon.icns" \
+            main.py
+
+      - name: Create DMG
+        run: |
+          mkdir -p dmg-staging
+          cp -R dist/nanoMIDIPlayer.app dmg-staging/
+          create-dmg \
+            --volname "nanoMIDIPlayer" \
+            --volicon "assets/icons/integrated/icon.icns" \
+            --background "assets/icons/integrated/dmgbackground.png" \
+            --window-pos 200 120 \
+            --window-size 625 400 \
+            --icon-size 128 \
+            --icon "nanoMIDIPlayer.app" 150 200 \
+            --hide-extension "nanoMIDIPlayer.app" \
+            --app-drop-link 475 200 \
+            "dist/nanoMIDIPlayer-macOS.dmg" \
+            dmg-staging/nanoMIDIPlayer.app || test -f dist/nanoMIDIPlayer-macOS.dmg
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: dist/nanoMIDIPlayer-macOS.dmg
+
+  build-linux:
+    name: Build Linux (.tar.gz, .deb, AppImage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies & fpm
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk libgtk-3-dev libgl1 libglx-mesa0 libasound2-dev ruby ruby-dev build-essential
+          sudo gem install --no-document fpm
+          python3 -m pip install --upgrade pip setuptools wheel pyinstaller
+          python3 -m pip install -r requirements.txt
+
+      - name: Build Linux standalone binary
+        run: |
+          pyinstaller --onefile --noconsole --noconfirm \
+            --hidden-import=PIL._tkinter_finder \
+            --collect-all customtkinter \
+            --collect-all tkinterweb \
+            --collect-all emoji \
+            --collect-all pynput \
+            --collect-all Xlib \
+            --collect-all evdev \
+            --collect-all keyboard \
+            --hidden-import=mido.backends.rtmidi \
+            --add-data="assets:assets" \
+            --paths="." \
+            --name="nanoMIDIPlayer" \
+            --icon="assets/icons/integrated/icon.png" \
+            main.py
+
+      - name: Package tar.gz
+        run: |
+          tar -czvf dist/nanoMIDIPlayer-linux-x64.tar.gz -C dist nanoMIDIPlayer
+
+      - name: Package .deb with fpm
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p pkg-deb/usr/bin
+          mkdir -p pkg-deb/usr/share/applications
+          mkdir -p pkg-deb/usr/share/icons/hicolor/256x256/apps
+
+          cp dist/nanoMIDIPlayer pkg-deb/usr/bin/
+          cp assets/icons/integrated/icon.png pkg-deb/usr/share/icons/hicolor/256x256/apps/nanoMIDIPlayer.png
+
+          cat << 'EOF' > pkg-deb/usr/share/applications/nanoMIDIPlayer.desktop
+          [Desktop Entry]
+          Name=nanoMIDIPlayer
+          Type=Application
+          Exec=/usr/bin/nanoMIDIPlayer
+          Icon=nanoMIDIPlayer
+          Categories=AudioVideo;Audio;
+          Terminal=false
+          Comment=nanoMIDIPlayer Extended
+          EOF
+
+          fpm -s dir -t deb \
+            -n nanoMIDIPlayer \
+            -v "${VERSION}" \
+            --architecture amd64 \
+            --description "nanoMIDIPlayer Extended - MIDI player & macro keystroke injector" \
+            -d python3-evdev \
+            -d python3-uinput \
+            -p "dist/nanoMIDIPlayer_${VERSION}_amd64.deb" \
+            -C pkg-deb .
+
+      - name: Package AppImage
+        run: |
+          mkdir -p AppDir/usr/bin
+          cp dist/nanoMIDIPlayer AppDir/usr/bin/nanoMIDIPlayer
+          cp assets/icons/integrated/icon.png AppDir/nanoMIDIPlayer.png
+          cp assets/icons/integrated/icon.png AppDir/.DirIcon
+
+          cat << 'EOF' > AppDir/nanoMIDIPlayer.desktop
+          [Desktop Entry]
+          Name=nanoMIDIPlayer
+          Type=Application
+          Exec=nanoMIDIPlayer
+          Icon=nanoMIDIPlayer
+          Categories=AudioVideo;Audio;
+          Terminal=false
+          Comment=nanoMIDIPlayer Extended
+          EOF
+
+          ln -s usr/bin/nanoMIDIPlayer AppDir/AppRun
+
+          curl -sLO https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir "dist/nanoMIDIPlayer-${GITHUB_REF_NAME}-linux-x86_64.AppImage"
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-release
+          path: |
+            dist/nanoMIDIPlayer-linux-x64.tar.gz
+            dist/*.deb
+            dist/*.AppImage
+
+  build-arch:
+    name: Build Arch Linux (.pkg.tar.zst)
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Install base tools
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel git sudo python python-pip tk python-build python-installer python-wheel python-setuptools alsa-lib
+
+      - name: Configure builder user and safe directory
+        run: |
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
+          chmod 0440 /etc/sudoers.d/builder
+          git config --global --add safe.directory '*'
+
+      - uses: actions/checkout@v4
+
+      - name: Pre-install AUR dependencies (python-uinput)
+        run: |
+          su builder -c '
+            cd /tmp
+            git clone https://aur.archlinux.org/python-uinput.git
+            cd python-uinput
+            makepkg -si --noconfirm
+          '
+
+      - name: Build Arch Linux Package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ARCH_VERSION="${VERSION//-/_}"
+          mkdir -p /home/builder/build
+          tar -czf /home/builder/build/nanoMIDIPlayer-source.tar.gz --exclude='.git' -C "${GITHUB_WORKSPACE}" .
+
+          cat << 'EOF' > /home/builder/build/nanoMIDIPlayer.desktop
+          [Desktop Entry]
+          Name=nanoMIDIPlayer
+          Type=Application
+          Exec=/usr/bin/nanoMIDIPlayer
+          Icon=nanoMIDIPlayer
+          Categories=AudioVideo;Audio;
+          Terminal=false
+          Comment=nanoMIDIPlayer Extended
+          EOF
+
+          cat << EOF > /home/builder/build/PKGBUILD
+          # Maintainer: nanoMIDIPlayer
+          pkgname=nanomidiplayer
+          pkgver=${ARCH_VERSION}
+          pkgrel=1
+          pkgdesc="nanoMIDIPlayer Extended - MIDI player and macro keyboard injector"
+          arch=('x86_64')
+          url="https://github.com/${GITHUB_REPOSITORY}"
+          license=('GPL-3.0-or-later')
+          depends=('python-evdev' 'python-uinput' 'tk' 'alsa-lib')
+          makedepends=('python-pip')
+          options=('!strip')
+          source=("nanoMIDIPlayer-source.tar.gz" "nanoMIDIPlayer.desktop")
+          sha256sums=('SKIP' 'SKIP')
+
+          build() {
+              cd "\$srcdir"
+              python -m pip install --break-system-packages -r requirements.txt
+              python -m pip install --break-system-packages pyinstaller
+              python -m PyInstaller --onefile --noconsole --noconfirm \
+                  --hidden-import=PIL._tkinter_finder \
+                  --collect-all customtkinter \
+                  --collect-all tkinterweb \
+                  --collect-all emoji \
+                  --collect-all pynput \
+                  --collect-all Xlib \
+                  --collect-all evdev \
+                  --collect-all keyboard \
+                  --hidden-import=mido.backends.rtmidi \
+                  --add-data="assets:assets" \
+                  --paths="." \
+                  --name="nanoMIDIPlayer" \
+                  --icon="assets/icons/integrated/icon.png" \
+                  main.py
+          }
+
+          package() {
+              install -Dm755 "\$srcdir/dist/nanoMIDIPlayer" "\$pkgdir/usr/bin/nanoMIDIPlayer"
+              install -Dm644 "\$srcdir/assets/icons/integrated/icon.png" "\$pkgdir/usr/share/icons/hicolor/256x256/apps/nanoMIDIPlayer.png"
+              install -Dm644 "\$srcdir/nanoMIDIPlayer.desktop" "\$pkgdir/usr/share/applications/nanoMIDIPlayer.desktop"
+          }
+          EOF
+
+          chown -R builder:builder /home/builder/build
+          su builder -c 'cd /home/builder/build && makepkg -s --noconfirm'
+
+          mkdir -p "${GITHUB_WORKSPACE}/dist"
+          cp /home/builder/build/*.pkg.tar.zst "${GITHUB_WORKSPACE}/dist/"
+
+      - name: Upload Arch Linux Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: arch-release
+          path: dist/*.pkg.tar.zst
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-windows, build-macos, build-linux, build-arch]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-artifacts/*
+          generate_release_notes: true
