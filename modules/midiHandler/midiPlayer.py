@@ -316,6 +316,23 @@ class MidiPlayerTab(ctk.CTkFrame):
         self.__class__.keyTransposeDropdown = self.keyTransposeDropdown
         ToolTip.CreateToolTip(self.keyTransposeDropdown, text='Transpose playback by semitones\nC = no transpose (default)')
 
+        # TIMELINE SLIDER
+        self.timelineSlider = ctk.CTkSlider(
+            self.midiFrame, from_=0, to=100, width=500, state="disabled",
+            command=midiPlayerFunctions.onSliderDrag,
+            fg_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["SpeedSliderBackColor"],
+            progress_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["SpeedSliderFillColor"],
+            button_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["SpeedSliderCircleColor"],
+            button_hover_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["SpeedSliderCircleHoverColor"]
+        )
+        self.timelineSlider.grid(row=10, column=0, padx=45, pady=(5, 2))
+        self.timelineSlider.set(0)
+        self.__class__.timelineSlider = self.timelineSlider
+        ToolTip.CreateToolTip(self.timelineSlider, text='Seek / Scrub Playback Position')
+
+        self.timelineSlider.bind("<Button-1>", midiPlayerFunctions.onSliderPress)
+        self.timelineSlider.bind("<ButtonRelease-1>", midiPlayerFunctions.onSliderRelease)
+
         # PLAYBACK BUTTONS
         self.playButton = ctk.CTkButton(
             self.midiFrame, text="Play", fg_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["PlayColor"], 
@@ -324,7 +341,7 @@ class MidiPlayerTab(ctk.CTkFrame):
             text_color_disabled=customTheme.activeThemeData["Theme"]["MidiPlayer"]["TextColorDisabled"], 
             hover_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["PlayColorHover"]
         )
-        self.playButton.grid(row=10, column=0, padx=45, pady=(0, 0), sticky="w")
+        self.playButton.grid(row=11, column=0, padx=45, pady=(2, 5), sticky="w")
         self.__class__.playButton = self.playButton
         ToolTip.CreateToolTip(self.playButton, text = 'Start Playback')
 
@@ -335,7 +352,7 @@ class MidiPlayerTab(ctk.CTkFrame):
             text_color_disabled=customTheme.activeThemeData["Theme"]["MidiPlayer"]["TextColorDisabled"], 
             hover_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["StopColorHover"]
         )
-        self.stopButton.grid(row=10, column=0, padx=130, pady=(0, 0), sticky="w")
+        self.stopButton.grid(row=11, column=0, padx=130, pady=(2, 5), sticky="w")
         self.__class__.stopButton = self.stopButton
 
         # TIMER
@@ -346,7 +363,7 @@ class MidiPlayerTab(ctk.CTkFrame):
             text_color=customTheme.activeThemeData["Theme"]["MidiPlayer"]["TextColor"], 
             text_color_disabled=customTheme.activeThemeData["Theme"]["MidiPlayer"]["TextColorDisabled"]
         )
-        self.timelineIndicator.grid(row=10, column=0, padx=(0, 50), pady=(0, 0), sticky="e")
+        self.timelineIndicator.grid(row=11, column=0, padx=(0, 50), pady=(2, 5), sticky="e")
         self.__class__.timelineIndicator = self.timelineIndicator
 
         # FINGER LIMIT

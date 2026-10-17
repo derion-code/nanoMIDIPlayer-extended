@@ -174,6 +174,23 @@ class DrumsMacroTab(ctk.CTkFrame):
         )
         self.creditsLabel.grid(row=4, column=0, padx=(0, 235), pady=(220, 0), sticky="n")
 
+        # TIMELINE SLIDER
+        self.timelineSlider = ctk.CTkSlider(
+            self.mainFrame, from_=0, to=100, width=500, state="disabled",
+            command=drumsMacroFunctions.onSliderDrag,
+            fg_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["SpeedSliderBackColor"],
+            progress_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["SpeedSliderFillColor"],
+            button_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["SpeedSliderCircleColor"],
+            button_hover_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["SpeedSliderCircleHoverColor"]
+        )
+        self.timelineSlider.grid(row=10, column=0, padx=45, pady=(5, 2))
+        self.timelineSlider.set(0)
+        self.__class__.timelineSlider = self.timelineSlider
+        ToolTip.CreateToolTip(self.timelineSlider, text='Seek / Scrub Playback Position')
+
+        self.timelineSlider.bind("<Button-1>", drumsMacroFunctions.onSliderPress)
+        self.timelineSlider.bind("<ButtonRelease-1>", drumsMacroFunctions.onSliderRelease)
+
         # PLAYBACK CONTROLS
         self.playButton = ctk.CTkButton(
             self.mainFrame, text="Play", 
@@ -183,7 +200,7 @@ class DrumsMacroTab(ctk.CTkFrame):
             text_color_disabled=customTheme.activeThemeData["Theme"]["DrumsMacro"]["TextColorDisabled"], 
             hover_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["PlayColorHover"]
         )
-        self.playButton.grid(row=10, column=0, padx=45, pady=(0, 0), sticky="w")
+        self.playButton.grid(row=11, column=0, padx=45, pady=(2, 5), sticky="w")
         self.__class__.playButton = self.playButton
         ToolTip.CreateToolTip(self.playButton, text = 'Start Playback')
 
@@ -195,7 +212,7 @@ class DrumsMacroTab(ctk.CTkFrame):
             text_color_disabled=customTheme.activeThemeData["Theme"]["DrumsMacro"]["TextColorDisabled"], 
             hover_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["StopColorHover"]
         )
-        self.stopButton.grid(row=10, column=0, padx=130, pady=(0, 0), sticky="w")
+        self.stopButton.grid(row=11, column=0, padx=130, pady=(2, 5), sticky="w")
         self.__class__.stopButton = self.stopButton
 
         # TIMESTAMP
@@ -206,7 +223,7 @@ class DrumsMacroTab(ctk.CTkFrame):
             text_color=customTheme.activeThemeData["Theme"]["DrumsMacro"]["TextColor"], 
             text_color_disabled=customTheme.activeThemeData["Theme"]["DrumsMacro"]["TextColorDisabled"]
         )
-        self.timelineIndicator.grid(row=10, column=0, padx=(0, 50), pady=(0, 0), sticky="e")
+        self.timelineIndicator.grid(row=11, column=0, padx=(0, 50), pady=(2, 5), sticky="e")
         self.__class__.timelineIndicator = self.timelineIndicator
 
         # FINGER LIMIT
