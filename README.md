@@ -60,7 +60,7 @@ Unlike standard macro players that break under modern Linux environments, **nano
 
 <div align="center">
 
-| Settings & Custom Themes |
+| Settings |
 |:---:|
 | <img src="assets/screenshot_settings.png" width="450" alt="Settings UI"> |
 
