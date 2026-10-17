@@ -1,205 +1,315 @@
-<img width="804" height="249" alt="bnr" src="https://github.com/user-attachments/assets/63d98de7-416e-493c-876b-f76d1ee8599b" />
+# nanoMIDIPlayer-extended
+
+<div align="center">
+
+<img width="804" height="249" alt="nanoMIDIPlayer Banner" src="https://github.com/user-attachments/assets/63d98de7-416e-493c-876b-f76d1ee8599b" />
+
+**A lightweight, high-performance MIDI player and macro engine with native Wayland support, kernel-level global hotkeys, real-time timeline scrubbing, and direct MIDI hardware output.**
+
+[![GitHub stars](https://img.shields.io/github/stars/derion-code/nanoMIDIPlayer-extended?style=for-the-badge&logo=github)](https://github.com/derion-code/nanoMIDIPlayer-extended)
+[![GitHub release](https://img.shields.io/github/v/release/derion-code/nanoMIDIPlayer-extended?style=for-the-badge&logo=github)](https://github.com/derion-code/nanoMIDIPlayer-extended/releases)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
+[![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python)](https://www.python.org/)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey?style=for-the-badge)](https://github.com/derion-code/nanoMIDIPlayer-extended)
+
+[**Download Releases**](https://github.com/derion-code/nanoMIDIPlayer-extended/releases) • [**Linux Wayland Setup**](#-linux-setup-wayland--x11) • [**CLI Usage**](#-cli-arguments) • [**Credits & Upstream**](#-credits--license)
+
+</div>
+
+---
 
 > [!NOTE]
-> **nanoMIDIPlayer-extended** is a fork of [NotHammer043/nanoMIDIPlayer](https://github.com/NotHammer043/nanoMIDIPlayer) with native Wayland/uinput support, evdev global hotkeys, and playback stability improvements.
-
-**nanoMIDIPlayer** is a lightweight MIDI player that can simulate MIDI to QWERTY or send MIDI signals directly to output MIDI devices.
-
-![GitHub stars](https://img.shields.io/github/stars/derion-code/nanoMIDIPlayer-extended?style=for-the-badge)
-![GitHub license](https://img.shields.io/github/license/derion-code/nanoMIDIPlayer-extended?style=for-the-badge)
-[![Download nanoMIDIPlayer](https://img.shields.io/github/downloads/derion-code/nanoMIDIPlayer-extended/total?style=for-the-badge)](https://github.com/derion-code/nanoMIDIPlayer-extended/releases)  
-
-[![Discord](https://us-east-1.tixte.net/uploads/nitrogift.discowd.com/mfmrte8il51.png)](https://nanomidi.net/discord)  [![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/nanoMIDI)  
----
-
-## ✨ What's New in This Fork
-
-This fork (**nanoMIDIPlayer-extended**) introduces key Linux compatibility features and stability improvements:
-
-- **uinput / Wayland Support**: Keypress simulation on Linux using `/dev/uinput` via `evdev`. This enables full functionality under Wayland compositors (GNOME, KDE Plasma, Sway, Hyprland, etc.) and XWayland where conventional X11 synthetic key events (`pynput`) are restricted. Can be selected in UI Settings or launched via `--input-module uinput`.
-- **evdev Global Hotkeys**: Kernel-level global hotkey listener that reads directly from Linux input device nodes (`/dev/input/event*`). Hotkeys work seamlessly regardless of which window has focus (even under Wayland and in full-screen games), ignores virtual keyboard feedback loops, and supports dynamic device hot-plugging.
-- **Playback Freeze Fix**: Eliminates deadlocks and UI freezes caused by re-entrant `stopPlayback` calls when triggering hotkeys. Adds self-join prevention so playback threads do not deadlock waiting on themselves, and updates playback state flags immediately upon stop initiation.
-- **Thread-Safety Hardening**: UI modifications and playback termination triggered from worker threads are safely dispatched onto Tkinter's main event loop using `app.after(0, ...)`. Critical playback loops and stop routines are protected with `try/finally` blocks to guarantee key releases and restore UI controls even if an unexpected error occurs.
-- **Seek / Scrubbing**: Interactive timeline sliders in both MIDI Player and Drums Macro tabs. Drag to jump instantly to any point in the song without waiting, with automatic prevention of stuck keys.
-- **Modern File Picker**: Replaced the default OS file dialog with a custom, theme-matching file browser. It remembers the last opened folder, filters for MIDI files, and supports double-click navigation.
+> **nanoMIDIPlayer-extended** is an active, enhanced fork of [NotHammer043/nanoMIDIPlayer](https://github.com/NotHammer043/nanoMIDIPlayer). It resolves longstanding Linux/Wayland compatibility limitations through native kernel `uinput` virtual device injection and `evdev` global hotkeys, eliminates playback deadlocks, introduces timeline scrubbing, and integrates a modern theme-aware file browser.
 
 ---
 
-## 🚀 Features  
-- [x] **Fully Open Source**  
-- [x] Simulate **MIDI Events** as **QWERTY** or to **Output Device** from `.mid | .midi` Files  
-- [x] **MIDI INPUT** to **QWERTY Keys**  
-- [x] **Velocity** and **Sustain** support  
-- [x] **Full 88 Key** support  
-- [x] **Random Fail/Human Error** `[Speed | Transpose]`  
-- [x] **Modifiable Piano Keymaps**   
-- [x] **Drums** to **QWERTY** from `.mid | .midi` Files  
-- [x] Built-in **MIDI Hub** from [nanoMIDI.net](https://nanomidi.net)  
-- [x] **Modifiable Hotkeys**  
-- [x] **Customizable** User-Interface  
-- [x] **Windows**, **Linux** and **macOS** Support!  
-- [x] **No Time Drift**  
+## 📖 Table of Contents
+
+- [Overview](#-overview)
+- [Screenshots](#-screenshots)
+- [Key Enhancements in this Fork](#-key-enhancements-in-this-fork)
+- [Features](#-features)
+- [Linux Setup (Wayland & X11)](#-linux-setup-wayland--x11)
+- [Installation & Quick Start](#-installation--quick-start)
+- [CLI Arguments](#-cli-arguments)
+- [Hotkeys & Keymaps](#-hotkeys--keymaps)
+- [Building from Source](#-building-from-source)
+- [Credits & License](#-credits--license)
 
 ---
 
-## 📸 Showcase  
+## 🌟 Overview
 
-https://github.com/user-attachments/assets/bb727c89-bd29-44f8-9194-e09e8f49975f
+**nanoMIDIPlayer-extended** is a versatile MIDI playback tool and macro utility. It reads standard `.mid` and `.midi` files and accurately converts musical notes into simulated QWERTY keystrokes for virtual piano games (such as Roblox, Garry's Mod, Rust, Web-based pianos) or sends raw MIDI data directly to physical synthesizers and virtual MIDI loopback devices.
 
----
-### 🔹 [Download](https://github.com/derion-code/nanoMIDIPlayer-extended/releases)  
-Get the latest version of [**nanoMIDIPlayer-extended Here**](https://github.com/derion-code/nanoMIDIPlayer-extended/releases):  
-[![Download nanoMIDIPlayer](https://img.shields.io/github/downloads/derion-code/nanoMIDIPlayer-extended/total?style=for-the-badge)](https://github.com/derion-code/nanoMIDIPlayer-extended/releases)  
-
-### 🛠️ Setup  
-1. **Download** [nanoMIDIPlayer.exe](https://github.com/derion-code/nanoMIDIPlayer-extended/releases)  or [nanoMIDIPlayer-macOS.dmg](https://github.com/derion-code/nanoMIDIPlayer-extended/releases) for macOS  
-2. **Run** nanoMIDIPlayer.exe  
-3. **Select a MIDI File** or find one from **MIDI Hub**  
-4. **Focus** on your virtual piano app/game  
-5. **Press "PLAY"** (Default Hotkey: **F1**)  
-
-## ⚠️ Why is this program detected as a virus?  
-Open-source programs like this often get flagged as viruses because some **malware** may use the same libraries. Removing false positives costs around **$300/year**. You can freely check the **source code** to ensure it is safe.  
-
----
-## 💖 Special thanks to our **Donators**, **Beta Testers** and **Suggesters**!    
-<!-- donator-table -->
-| Donator | Message |
-|---------|---------|
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/913119142436032554" /> [**<u>M7xt</u>**](https://discord.com/users/913119142436032554)<br>`USD30` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | Brr stibidi dop dop dop dop dop<br>Yes yes yes yes shtib shtibidi dip dibidi<br>Wwww yes yes yes yes<br><br>Brr stibidi dop dop dop dop dop<br>Yes yes yes yes shtib shtibidi dip dibidi<br>Wwww yes yes yes yes<br>We ain’t here to hurt nobody<br>Stibidi stibidi stibidi<br>Wanna see you work your body<br>Stibidi stibidi stibidi |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/913119142436032554" /> [**<u>M7xt</u>**](https://discord.com/users/913119142436032554)<br>`USD30` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | “Cute 💖 funny 🤪✨ single 💔🥺 fits in teacup 🫖☕🐣'' -  R.I.P Rp games and the funny bios 💔 |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/913119142436032554" /> [**<u>M7xt</u>**](https://discord.com/users/913119142436032554)<br>`USD30` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | Admin should make it so all donations are put into one person so the board doesn't get flooded like this lmao |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **evelyn**<br>`USD25` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | tysm worked perfectly <3 |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **Lischinianism**<br>`USD15` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | This is really really good. Thank you! Really enjoy using it |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/861220271431221299" /> [**<u>Skysoblue112</u>**](https://discord.com/users/861220271431221299)<br>`USD10` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | Using this to be a menace on a minecraft server :)) |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.buymeacoffee.com/uploads/profile_pictures/2025/06/FAydqY7zmlE6HH5l.png@300w_0e.webp" /> **Rdxz**<br>`USD10` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | "🥲😋🤪😶😶‍🌫️🤮🤓" - A wise man |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **Someone**<br>`USD10` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | Love the MuseScore downloader, it is the only site which would not let users download the scores... thank you for that! |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/919966628991623188" /> [**<u>Toast</u>**](https://discord.com/users/919966628991623188)<br>`USD7` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | Its not much but i really appreciate the work you put into! |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/1221215014690754692" /> [**<u>andrew</u>**](https://discord.com/users/1221215014690754692)<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | guys good job. blow job . hand job. |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/546991224012144652" /> [**<u>boehlimaa</u>**](https://discord.com/users/546991224012144652)<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | keep going, insane! |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **Unknown**<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/515905942664118303" /> [**<u>.kayce_</u>**](https://discord.com/users/515905942664118303)<br>`USD5` <img width="16" height="16" alt="paypal" src="https://github.com/user-attachments/assets/15cf897f-90c6-4ca5-aa58-64004ab0c9ce" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/860744534919741460" /> [**<u>Maristis</u>**](https://discord.com/users/860744534919741460)<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/529080798138073119" /> [**<u>loserjiku</u>**](https://discord.com/users/529080798138073119)<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | Thanks you for your hard work |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.buymeacoffee.com/uploads/profile_pictures/2026/02/40qBY5CHjxXVxUvA.jpg@300w_0e.webp" /> **serna**<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **@zoey473**<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | tysm :) |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **Unknown**<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.buymeacoffee.com/uploads/profile_pictures/2026/02/bAW4kIzKxCagqWt2.jpg@300w_0e.webp@200w_0e.webp" /> **serna**<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.buymeacoffee.com/uploads/profile_pictures/default/v2/C2D9E1/default.png@200w_0e.webp" /> **哲也**<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.buymeacoffee.com/uploads/profile_pictures/default/v2/E3CBF4/RL.png@200w_0e.webp" /> **rlslrlsl3717@gmail.com**<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | :) |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.buymeacoffee.com/uploads/profile_pictures/default/v2/EC9689/JO.png@200w_0e.webp" /> **josiah52**<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.buymeacoffee.com/uploads/profile_pictures/default/v2/FFABD0/SO.png@200w_0e.webp" /> **Someone**<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.buymeacoffee.com/uploads/profile_pictures/2026/04/29pxioL1PcaFoXMs.jpg@300w_0e.webp@200w_0e.webp" /> **Arm**<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.buymeacoffee.com/uploads/profile_pictures/2026/04/cghnrU7L0XzGPzax.png@300w_0e.webp@200w_0e.webp" /> **DOGTARZAN**<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **DOGTARZAN**<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **qqnikkiqq**<br>`USD5` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | great comunity thank you <3 |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/1221215014690754692" /> [**<u>andrew</u>**](https://discord.com/users/1221215014690754692)<br>`USD3` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | its good good stuff guys |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **leahdustt**<br>`USD3` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | absolutely divine product, i'm happy to support |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **Unknown**<br>`USD2` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/125093003881611264" /> [**<u>YuuenS</u>**](https://discord.com/users/125093003881611264)<br>`USD2` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | Thank you for your great work. Buy a coffee.❤️ |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/125093003881611264" /> [**<u>YuuenS</u>**](https://discord.com/users/125093003881611264)<br>`USD2` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | Love You ❤️ |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/268714614215278602" /> [**<u>Exzia</u>**](https://discord.com/users/268714614215278602)<br>`USD2` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | Cool work! Very useful for midi lovers |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/986595743257227324" /> [**<u>wavetamaki</u>**](https://discord.com/users/986595743257227324)<br>`USD2` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **Unknown**<br>`USD2` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **Unknown**<br>`USD2` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | Stay up, nice project |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **LukynkaCZE**<br>`USD2` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **fearryari**<br>`USD2` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | Good aim vroski |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **spike**<br>`USD2` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | here you are for the best piano macro on roblox |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **coop1709**<br>`USD2` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | Love the tech <3 |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **fntdev_**<br>`USD2` <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" /> | tuff for drum game |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://api.nanomidi.net/api/fetchDiscordAvatar/922517334780944435" /> [**<u>evann0809jeux</u>**](https://discord.com/users/922517334780944435)<br>`USD0.92` <img width="16" height="16" alt="paypal" src="https://github.com/user-attachments/assets/15cf897f-90c6-4ca5-aa58-64004ab0c9ce" /> |  |
-| <img width="16" height="16" alt="aZdziwkryKjF" src="https://cdn.nanomidi.net/J9LK9xK2HtDq.png" /> **Unknown**<br>`USD0.27` <img width="16" height="16" alt="paypal" src="https://github.com/user-attachments/assets/15cf897f-90c6-4ca5-aa58-64004ab0c9ce" /> | Im poor 🗣️ |
-<!-- donator-table-end -->
-| Beta Testers | Suggesters | Bug Hunters |
-|--------------|------------|-------------|
-| [**<u>Floofy</u>**](https://discord.com/users/966112150915518474) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/966112150915518474" /> | [**<u>fearsomeorc1406</u>**](https://discord.com/users/1292364099581116416) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/1292364099581116416" /> | [**<u>PINECone</u>**](https://discord.com/users/8249837242355856) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/8249837242355856" /> |
-| [**<u>yournightmare5005</u>**](https://discord.com/users/608557546617176084) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/608557546617176084" /> | [**<u>youwontfindmymain_89866</u>**](https://discord.com/users/1248542802879578112) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/1248542802879578112" /> | [**<u>Jolly BHZ</u>**](https://discord.com/users/1216531540322816140) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/1216531540322816140" /> |
-| [**<u>koji_xyz</u>**](https://discord.com/users/541806183858569226) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/541806183858569226" /> | [**<u>star.tism</u>**](https://discord.com/users/714699906392129626) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/714699906392129626" /> | [**<u>darspud</u>**](https://discord.com/users/311494641038000129) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/311494641038000129" /> |
-| [**<u>sebx.s_</u>**](https://discord.com/users/1196546791705939978) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/1196546791705939978" /> | [**<u>hdsfgh</u>**](https://discord.com/users/739301556805042207) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/739301556805042207" /> | [**<u>Sachin</u>**](https://discord.com/users/949633147363020810) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/949633147363020810" /> |
-| [**<u>bkiiz3</u>**](https://discord.com/users/1234466733767524418) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/1234466733767524418" /> | [**<u>somecoolname2</u>**](https://discord.com/users/1160579679992946759) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/1160579679992946759" /> | [**<u>Robloxian</u>**](https://discord.com/users/998378078436855849) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/998378078436855849" /> |
-| [**<u>uvane</u>**](https://discord.com/users/319674793823830016) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/319674793823830016" /> | [**<u>rzrized</u>**](https://discord.com/users/217572086598598656) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/217572086598598656" /> | [**<u>cjsomook</u>**](https://discord.com/users/723737815422337026) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/723737815422337026" /> |
-| [**<u>ducktue</u>**](https://discord.com/users/824634144826195978) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/824634144826195978" /> | [**<u>zothics</u>**](https://discord.com/users/936428624511369226) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/936428624511369226" /> | |
-| [**<u>gamesacctualych</u>**](https://discord.com/users/1158814626532823074) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/1158814626532823074" /> | [**<u>trapguy5</u>**](https://discord.com/users/951926968180424734) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/951926968180424734" /> | |
-| [**<u>nictiser</u>**](https://discord.com/users/410808054645522433) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/410808054645522433" /> | [**<u>mrbeecool_yt</u>**](https://discord.com/users/834919782435520523) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/834919782435520523" /> | |
-| [**<u>catnoyesyesnoyesno</u>**](https://discord.com/users/691576381825613905) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/691576381825613905" /> | | |
-| [**<u>zackfgteev1yt</u>**](https://discord.com/users/840524152225136680) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/840524152225136680" /> | | |
-| [**<u>RDJX3</u>**](https://discord.com/users/858856498608341053) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/858856498608341053" /> | | |
-| [**<u>FrictionalityKiller</u>**](https://discord.com/users/1306148802637467662) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/1306148802637467662" /> | | |
-| [**<u>TheGrownReal</u>**](https://discord.com/users/1318841921849786431) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/1318841921849786431" /> | | |
-| [**<u>qua_maybe</u>**](https://discord.com/users/1249390247188500594) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/1249390247188500594" /> | | |
-| [**<u>Momo</u>**](https://discord.com/users/1087735214362607668) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/1087735214362607668" /> | | |
-| [**<u>minon kaka</u>**](https://discord.com/users/819143557352914954) <img width="16" height="16" src="https://api.nanomidi.net/api/fetchDiscordAvatar/819143557352914954" /> | | |
+Unlike standard macro players that break under modern Linux environments, **nanoMIDIPlayer-extended** features a dedicated Linux architecture that works out-of-the-box across **Wayland** compositors (GNOME, KDE Plasma, Hyprland, Sway) and X11 without window focus constraints.
 
 ---
 
-## 🛠️ Building  
-### 🔧 Requirements  
-- [VS BuildTools C++](https://visualstudio.microsoft.com/visual-cpp-build-tools/)  
-- [Python](https://www.python.org/)  
+## 📸 Screenshots
 
-#### 1. Clone The Repository  
+<!-- Placeholders for GitHub image drag-and-drop -->
+
+| MIDI Player (Timeline & Controls) | Drums Macro Tab |
+|:---:|:---:|
+| ![Main Player UI](assets/screenshot_main.png) | ![Drums Macro UI](assets/screenshot_drums.png) |
+
+| Live MIDI to QWERTY Visualizer | Modern Custom File Dialog |
+|:---:|:---:|
+| ![MIDI to QWERTY UI](assets/screenshot_midi_to_qwerty.png) | ![File Dialog UI](assets/screenshot_file_dialog.png) |
+
+<div align="center">
+
+| Settings & Custom Themes |
+|:---:|
+| ![Settings UI](assets/screenshot_settings.png) |
+
+</div>
+
+---
+
+## ✨ Key Enhancements in this Fork
+
+### 🐧 Native Wayland & `uinput` Keystroke Simulation
+Under Wayland, traditional X11 synthetic key injectors (`pynput`, `xdotool`, `keyboard`) fail or are blocked by compositor security policies. This fork introduces a dedicated `uinput` backend that creates a virtual kernel input device (`/dev/uinput`). Keystrokes are recognized system-wide across all Wayland desktop environments and full-screen games.
+
+### 🎯 Kernel-Level `evdev` Global Hotkeys
+Global hotkeys often fail when a game or another application captures focus. This fork adds an `evdev` event listener reading raw device events from `/dev/input/event*`:
+- Hotkeys trigger reliably even when the player is minimized or unfocused.
+- Dynamic hotplugging automatically detects connected and disconnected keyboards.
+- Feedback loops from the virtual keyboard are filtered out safely.
+- Graceful fallback to `pynput` on platforms or configurations without `evdev`.
+
+### ⏱️ Interactive Timeline Scrubbing & Seeking
+Both the **MIDI Player** and **Drums Macro** tabs feature interactive timeline sliders:
+- Drag or click anywhere on the progress bar to seek instantly to any position.
+- Uses binary search indexing (`bisect`) for instantaneous zero-latency seeks.
+- Automatically cleans up and releases held keys during seek operations to prevent stuck notes.
+
+### 🛡️ Deadlock Prevention & Thread-Safety Hardening
+- **Self-Join Deadlock Fix**: Prevents playback worker threads from freezing when hotkeys trigger re-entrant stop commands.
+- **Immediate State Signaling**: Flags `stopEvent` and `closeThread` instantly so background loops exit without lag.
+- **Safe UI Dispatch**: Background threads dispatch GUI modifications and stop sequences onto Tkinter's main thread using `app.after(0, ...)`.
+- **Resource Recovery**: Critical playback loops are guarded with robust `try/finally` blocks ensuring keys and timers are released even if a file is malformed.
+
+### 📂 Integrated Modern File Browser
+Replaced native OS file dialogs with an in-app CustomTkinter file picker:
+- Matches the active application theme automatically.
+- Real-time search with typing debounce.
+- Remembers your last-used MIDI folder across sessions.
+- Breadcrumb navigation, quick-access drives, and double-click folder navigation.
+
+### 🎼 Extended Pitch, Key Transpose & Finger Limiting
+- **Pitch Octave Shifting**: Shift playback by octaves (`Lowest` -2 oct, `Low` -1 oct, `Middle` default, `High` +1 oct, `Highest` +2 oct).
+- **Semitone Transposition**: Transpose playback across all 12 musical keys (`C` through `B`).
+- **Polyphony Limiter**: Restrict simultaneous active keys from 1 to 10 fingers, or choose unlimited (`∞`).
+
+---
+
+## 🚀 Features
+
+- **Dual Output Modes**:
+  - **Macro Mode**: Simulates keystrokes for virtual pianos (61-key and 88-key layouts).
+  - **MIDI Output Device**: Emits raw MIDI signals directly to hardware synthesizers or virtual loopback devices (via `python-rtmidi`).
+- **Live MIDI Input to QWERTY**:
+  - Connect a USB MIDI keyboard or controller to play notes in real time.
+  - Interactive **88-key graphical piano visualizer** renders active keys live.
+- **Drums Macro Player**: Dedicated drum track engine with custom drum piece mappings (Kick, Snare, Toms, Hi-Hats, Crashes, Ride, Cowbell).
+- **Online MIDI Hub**: Integrated in-app browser powered by the [nanoMIDI.net](https://nanomidi.net) library with search and sorting (Newest, Oldest, Downloads, Views).
+- **Expressive Keystrokes**:
+  - **Velocity Simulation**: Simulates key hit velocity using `ALT` key combinations.
+  - **Sustain Pedal**: Emulates damper pedal with `Spacebar` and adjustable cutoff threshold.
+  - **No Doubles**: Anti-ghosting algorithm to prevent accidental double-strikes.
+- **Humanization (Random Fail)**: Simulates human imperfection with configurable sliders for speed drift and transposition error rates.
+- **Themes & UI Customization**:
+  - Built-in color themes: Dark, Light, Discord, Oceanic, Forest, Halloween, Red Velvet.
+  - Support for custom JSON themes placed in `~/Documents/nanoMIDIPlayer/assets/customThemes/`.
+  - Always-on-top window toggle, live console output, and tooltip hints.
+
+---
+
+## 🐧 Linux Setup (Wayland & X11)
+
+> [!IMPORTANT]
+> To use `uinput` simulation and `evdev` global hotkeys under Linux, your user account needs permission to access `/dev/uinput` and `/dev/input/event*`. Without these permissions, the application falls back to `pynput` (which cannot send keystrokes to Wayland windows or capture global hotkeys without focus).
+
+Follow these three steps to configure your system:
+
+### 1. Load the `uinput` Kernel Module
+Ensure the kernel module is loaded:
+```bash
+sudo modprobe uinput
+```
+To load it automatically on every boot:
+```bash
+echo "uinput" | sudo tee /etc/modules-load.d/uinput.conf
+```
+
+### 2. Install the udev Rule
+Create a udev rule to grant the `input` group write access to `/dev/uinput`:
+```bash
+echo 'KERNEL=="uinput", MODE="0660", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+```
+Reload and trigger the updated rules:
+```bash
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+### 3. Add Your User to the `input` Group
+Add your current user to the `input` group:
+```bash
+sudo usermod -aG input $USER
+```
+
+> [!WARNING]
+> You **MUST log out and log back in** (or restart your session) for the new group membership to take effect. You can verify your active groups by running `groups` in a terminal.
+
+---
+
+## 📥 Installation & Quick Start
+
+### Option A: Pre-built Binaries
+Download the latest pre-compiled binary for your operating system from the [**Releases Page**](https://github.com/derion-code/nanoMIDIPlayer-extended/releases):
+- **Linux**: Extract `nanoMIDIPlayer.tar.gz` and run `./nanoMIDIPlayer`
+- **Windows**: Run `nanoMIDIPlayer.exe`
+- **macOS**: Mount `nanoMIDIPlayer-ARM.dmg` or `nanoMIDIPlayer-Intel.dmg` and drag to Applications
+
+### Option B: Running from Source
+
+#### Prerequisites
+- Python 3.10 or higher
+- Git
+
+#### 1. Clone the Repository
 ```bash
 git clone https://github.com/derion-code/nanoMIDIPlayer-extended.git
 cd nanoMIDIPlayer-extended
 ```
 
-#### 2. Install Dependencies  
+#### 2. Create and Activate a Virtual Environment
 ```bash
+# On Linux / macOS:
+python3 -m venv venv
+source venv/bin/activate
+
+# On Windows (Command Prompt):
+python -m venv venv
+call venv\Scripts\activate.bat
+
+# On Windows (PowerShell):
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+```
+
+#### 3. Install Dependencies
+```bash
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
-  
-#### 3. Build
-```bash
-build.bat
-```
-```python
-# For macOS
-./build-mac.sh
-```
 
-#### 🐞 Debugging Mode  
+#### 4. Launch Application
 ```bash
-nanoMIDIPlayer.exe --debug
-```
-
-#### 🐧 Linux (Wayland / X11) uinput Setup
-To simulate keypresses under Wayland, nanoMIDIPlayer supports `uinput` (via `evdev`). Ensure your user has access to `/dev/uinput`:
-1. Ensure the `uinput` kernel module is loaded:
-   ```bash
-   sudo modprobe uinput
-   ```
-2. Create a udev rule for non-root access:
-   ```bash
-   echo 'KERNEL=="uinput", MODE="0660", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/99-uinput.rules
-   sudo udevadm control --reload-rules && sudo udevadm trigger
-   ```
-3. Add your user to the `input` group:
-   ```bash
-   sudo usermod -aG input $USER
-   ```
-   *(Log out and log back in for group membership to take effect)*
-
-You can select `uinput` in the Settings tab or run with:
-```bash
+# On Linux (recommended with uinput for Wayland):
 python main.py --input-module uinput
+
+# On Windows / macOS:
+python main.py
 ```
 
 ---
 
-### 💖 Support & Contributions  
-- **Star the repo** ⭐ on [GitHub](https://github.com/derion-code/nanoMIDIPlayer-extended)  
-- **Report issues** 🛠️ via [GitHub Issues](https://github.com/derion-code/nanoMIDIPlayer-extended/issues)  
-- **Contribute** 💻 via Pull Requests  
-- **Original Project**: Support upstream development via **[BuyMeACoffee <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" />](https://buymeacoffee.com/nanomidi)**
+## 💻 CLI Arguments
+
+`main.py` accepts command-line flags to customize execution:
+
+| Argument | Options | Description |
+| :--- | :--- | :--- |
+| `--input-module` | `uinput`, `pynput`, `keyboard` | Sets the preferred keystroke simulation driver across MIDI Player, Drums Macro, and MIDI to QWERTY tabs. |
+| `--debug` | *(None)* | Spawns an attached debug console window with detailed runtime logging. |
+| `-h`, `--help` | *(None)* | Displays help information and exits. |
+
+### CLI Examples
+
+* **Launch with Wayland `uinput` backend:**
+  ```bash
+  python main.py --input-module uinput
+  ```
+* **Launch with debug logging enabled:**
+  ```bash
+  python main.py --debug
+  ```
+* **Combine options:**
+  ```bash
+  python main.py --input-module uinput --debug
+  ```
 
 ---
 
-## 📜 Credits
+## ⌨️ Hotkeys & Keymaps
 
-This project is an extended fork of **[nanoMIDIPlayer](https://github.com/NotHammer043/nanoMIDIPlayer)**, originally created and maintained by **[NotHammer043](https://github.com/NotHammer043)**.
+### Default Global Hotkeys
 
-- **Original Project**: [NotHammer043/nanoMIDIPlayer](https://github.com/NotHammer043/nanoMIDIPlayer)
-- **Website & MIDI Hub**: [nanoMIDI.net](https://nanomidi.net)
-- Special thanks to NotHammer043 and the entire nanoMIDIPlayer community for the original codebase, features, and inspiration!
+All hotkeys are customizable in the **Settings** tab:
 
-[![Star History Chart](https://api.star-history.com/svg?repos=NotHammer043/nanoMIDIPlayer&type=Date)](https://www.star-history.com/#NotHammer043/nanoMIDIPlayer&Date)  
+| Function | Default Key | Description |
+| :--- | :---: | :--- |
+| **Play** | `F1` | Starts or restarts playback of the loaded MIDI file. |
+| **Pause** | `F2` | Pauses or resumes playback (releases held keys if configured). |
+| **Stop** | `F3` | Stops playback immediately and resets timeline to start. |
+| **Speed Up** | `F4` | Increases playback speed by the configured step size. |
+| **Slow Down** | `F5` | Decreases playback speed by the configured step size. |
+
+### Virtual Piano Keymapping
+- **61-Key Mode**: Standard octave keys mapped across digits `1`-`0`, lowercase `q`-`p`, `a`-`l`, `z`-`m`, with black keys triggered via `Shift` modifier (or symbol keys like `!`, `@`, `$`, `%`, etc.).
+- **88-Key Mode**: Extends range to the lowest and highest piano octaves using `Ctrl` modifier keys.
+- **Velocity Mapping**: Dynamically triggers note loudness levels via `Alt` key combinations in supported virtual pianos.
+- **Sustain**: Transmits `Spacebar` while sustain control events exceed the configured cutoff threshold (default: `63`).
+
+---
+
+## 🛠️ Building from Source
+
+Build standalone executables using the included platform scripts in the `scripts/` directory:
+
+### Linux
+```bash
+bash scripts/build-lnx.sh
+# Outputs: dist/nanoMIDIPlayer.tar.gz
+```
+
+### Windows
+```cmd
+scripts\build-win.bat
+:: Outputs: dist\nanoMIDIPlayer.exe
+```
+
+### macOS
+```bash
+# For Apple Silicon (M1/M2/M3):
+bash scripts/build-mac.sh --arch arm
+# For Intel Macs:
+bash scripts/build-mac.sh --arch intel
+# Outputs: dist/nanoMIDIPlayer-ARM.dmg or dist/nanoMIDIPlayer-Intel.dmg
+```
+
+---
+
+## 📜 Credits & License
+
+### Original Upstream Project
+**nanoMIDIPlayer-extended** is an extended fork of **[nanoMIDIPlayer](https://github.com/NotHammer043/nanoMIDIPlayer)**, originally developed and maintained by **[NotHammer043](https://github.com/NotHammer043)**.
+
+- **Upstream Repository**: [NotHammer043/nanoMIDIPlayer](https://github.com/NotHammer043/nanoMIDIPlayer)
+- **Official Website & MIDI Hub**: [nanoMIDI.net](https://nanomidi.net)
+- **Support the Original Author**: Consider supporting upstream development via **BuyMeACoffee**:
+
+<div align="center">
+
+[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/nanoMIDI)
+
+</div>
+
+Special thanks to NotHammer043, [fearsomeorc1406](https://discord.com/users/1292364099581116416) (creator of Drums Macro), and the upstream nanoMIDI community for the foundation, themes, and community support.
+
+### License
+This project is licensed under the **GNU General Public License v3.0 (GPLv3)**. See the [LICENSE](file:///home/derion/projects/nanoMIDIPlayer-extended/LICENSE) file for complete details.
