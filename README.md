@@ -6,11 +6,9 @@
 
 **A lightweight, high-performance MIDI player and macro engine with native Wayland support, kernel-level global hotkeys, real-time timeline scrubbing, and direct MIDI hardware output.**
 
-[![GitHub stars](https://img.shields.io/github/stars/derion-code/nanoMIDIPlayer-extended?style=for-the-badge&logo=github)](https://github.com/derion-code/nanoMIDIPlayer-extended)
-[![GitHub release](https://img.shields.io/github/v/release/derion-code/nanoMIDIPlayer-extended?style=for-the-badge&logo=github)](https://github.com/derion-code/nanoMIDIPlayer-extended/releases)
+[![Latest Release](https://img.shields.io/github/v/release/derion-code/nanoMIDIPlayer-extended?style=for-the-badge&color=blue)](https://github.com/derion-code/nanoMIDIPlayer-extended/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/derion-code/nanoMIDIPlayer-extended/total?style=for-the-badge&color=brightgreen)](https://github.com/derion-code/nanoMIDIPlayer-extended/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
-[![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python)](https://www.python.org/)
-[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey?style=for-the-badge)](https://github.com/derion-code/nanoMIDIPlayer-extended)
 
 [**Download Releases**](https://github.com/derion-code/nanoMIDIPlayer-extended/releases) • [**Linux Wayland Setup**](#-linux-setup-wayland--x11) • [**CLI Usage**](#-cli-arguments) • [**Credits & Upstream**](#-credits--license)
 
@@ -168,11 +166,13 @@ sudo usermod -aG input $USER
 
 ## 📥 Installation & Quick Start
 
-### Option A: Pre-built Binaries
+### Option A: Pre-built Binaries (Recommended)
 Download the latest pre-compiled binary for your operating system from the [**Releases Page**](https://github.com/derion-code/nanoMIDIPlayer-extended/releases):
-- **Linux**: Extract `nanoMIDIPlayer.tar.gz` and run `./nanoMIDIPlayer`
-- **Windows**: Run `nanoMIDIPlayer.exe`
-- **macOS**: Mount `nanoMIDIPlayer-ARM.dmg` or `nanoMIDIPlayer-Intel.dmg` and drag to Applications
+- **Windows**: `.zip` (extract and run `.exe`)
+- **macOS**: `.dmg` (mount and drag to Applications)
+- **Linux (Ubuntu/Debian/Mint)**: `.deb` (install via `apt` or double-click)
+- **Linux (Arch)**: `.pkg.tar.zst` (install via `pacman -U`)
+- **Linux (Universal)**: `.AppImage` (`chmod +x` and run) or `.tar.gz`
 
 ### Option B: Running from Source
 
@@ -269,28 +269,7 @@ All hotkeys are customizable in the **Settings** tab:
 
 ## 🛠️ Building from Source
 
-Build standalone executables using the included platform scripts in the `scripts/` directory:
-
-### Linux
-```bash
-bash scripts/build-lnx.sh
-# Outputs: dist/nanoMIDIPlayer.tar.gz
-```
-
-### Windows
-```cmd
-scripts\build-win.bat
-:: Outputs: dist\nanoMIDIPlayer.exe
-```
-
-### macOS
-```bash
-# For Apple Silicon (M1/M2/M3):
-bash scripts/build-mac.sh --arch arm
-# For Intel Macs:
-bash scripts/build-mac.sh --arch intel
-# Outputs: dist/nanoMIDIPlayer-ARM.dmg or dist/nanoMIDIPlayer-Intel.dmg
-```
+Building from source is no longer required for end-users. Official binaries are automatically built and released via GitHub Actions for all platforms (Windows, macOS, Linux, Arch) whenever a new tag is pushed. Developers can still run the app locally using Python (see Option B above).
 
 ---
 
