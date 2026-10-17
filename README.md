@@ -2,7 +2,13 @@
 
 <div align="center">
 
-<img width="804" height="249" alt="nanoMIDIPlayer Banner" src="https://github.com/user-attachments/assets/63d98de7-416e-493c-876b-f76d1ee8599b" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/derion-code/nanoMIDIPlayer-extended/main/assets/banner-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/derion-code/nanoMIDIPlayer-extended/main/assets/banner-light.png">
+  <img alt="nanoMIDIPlayer-extended" src="https://raw.githubusercontent.com/derion-code/nanoMIDIPlayer-extended/main/assets/banner-dark.png" width="800">
+</picture>
+
+</div>
 
 **A lightweight, high-performance MIDI player and macro engine with native Wayland support, kernel-level global hotkeys, real-time timeline scrubbing, and direct MIDI hardware output.**
 
