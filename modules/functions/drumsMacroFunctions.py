@@ -7,7 +7,7 @@ import datetime
 import keyboard
 import logging
 
-from tkinter import filedialog
+from ui.fileDialog import askopenfilename
 from mido import MidiFile
 from pynput import keyboard as pynputKeyboard
 
@@ -90,7 +90,7 @@ def selectFile():
             DrumsMacroTab.timelineSlider.set(0)
         DrumsMacroTab.playButton.configure(text="Play")
 
-        filePath = filedialog.askopenfilename(filetypes=[("MIDI files", "*.mid"), ("MIDI files", "*.midi")])
+        filePath = askopenfilename(filetypes=[("MIDI files", "*.mid"), ("MIDI files", "*.midi")])
         logger.debug(f"filePath selected: {filePath}")
         if filePath:
             currentVAL = list(DrumsMacroTab.midiPathDropdown.cget("values"))
@@ -113,6 +113,7 @@ def selectFile():
                 DrumsMacroTab.timelineSlider.set(0)
 
             configuration.configData['drumsMacro']['currentFile'] = filePath
+            configuration.configData['last_midi_dir'] = os.path.dirname(filePath)
 
             if 'midiList' not in configuration.configData['drumsMacro']:
                 configuration.configData['drumsMacro']['midiList'] = []
