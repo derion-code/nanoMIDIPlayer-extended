@@ -7,7 +7,7 @@ import datetime
 import keyboard
 import logging
 
-from tkinter import filedialog
+from ui.fileDialog import askopenfilename
 from mido import MidiFile
 from pynput import keyboard as pynputKeyboard
 from modules import configuration
@@ -154,7 +154,7 @@ def selectFile():
             MidiPlayerTab.timelineSlider.set(0)
         MidiPlayerTab.playButton.configure(text="Play")
 
-        filePath = filedialog.askopenfilename(filetypes=[("MIDI files", "*.mid"), ("MIDI files", "*.midi")])
+        filePath = askopenfilename(filetypes=[("MIDI files", "*.mid"), ("MIDI files", "*.midi")])
         logger.debug(f"filePath selected: {filePath}")
         if filePath:
             currentVAL = list(MidiPlayerTab.filePathEntry.cget("values"))
@@ -177,6 +177,7 @@ def selectFile():
                 MidiPlayerTab.timelineSlider.set(0)
 
             configuration.configData['midiPlayer']['currentFile'] = filePath
+            configuration.configData['last_midi_dir'] = os.path.dirname(filePath)
 
             if 'midiList' not in configuration.configData['midiPlayer']:
                 configuration.configData['midiPlayer']['midiList'] = []
