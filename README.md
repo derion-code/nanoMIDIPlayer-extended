@@ -1,3 +1,7 @@
+<p align="center">
+  <b>English</b> | <a href="README_RU.md">Русский</a>
+</p>
+
 # nanoMIDIPlayer-extended
 
 <div align="center">
