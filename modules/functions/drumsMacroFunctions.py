@@ -304,6 +304,7 @@ def playButton():
         logger.exception(f"playButton error: {e}")
 
 def startPlayback():
+    global initialSeekTime
     logger.info("startPlayback called")
     try:
         midiFile = DrumsMacroTab.midiPathDropdown.get()
