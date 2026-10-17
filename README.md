@@ -21,6 +21,7 @@ This fork (**nanoMIDIPlayer-extended**) introduces key Linux compatibility featu
 - **Playback Freeze Fix**: Eliminates deadlocks and UI freezes caused by re-entrant `stopPlayback` calls when triggering hotkeys. Adds self-join prevention so playback threads do not deadlock waiting on themselves, and updates playback state flags immediately upon stop initiation.
 - **Thread-Safety Hardening**: UI modifications and playback termination triggered from worker threads are safely dispatched onto Tkinter's main event loop using `app.after(0, ...)`. Critical playback loops and stop routines are protected with `try/finally` blocks to guarantee key releases and restore UI controls even if an unexpected error occurs.
 - **Seek / Scrubbing**: Interactive timeline sliders in both MIDI Player and Drums Macro tabs. Drag to jump instantly to any point in the song without waiting, with automatic prevention of stuck keys.
+- **Modern File Picker**: Replaced the default OS file dialog with a custom, theme-matching file browser. It remembers the last opened folder, filters for MIDI files, and supports double-click navigation.
 
 ---
 
