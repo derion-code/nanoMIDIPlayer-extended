@@ -52,17 +52,17 @@ Unlike standard macro players that break under modern Linux environments, **nano
 
 | MIDI Player (Timeline & Controls) | Drums Macro Tab |
 |:---:|:---:|
-| ![Main Player UI](assets/screenshot_main.png) | ![Drums Macro UI](assets/screenshot_drums.png) |
+| <img src="assets/screenshot_main.png" width="450" alt="Main Player UI"> | <img src="assets/screenshot_drums.png" width="450" alt="Drums Macro UI"> |
 
 | Live MIDI to QWERTY Visualizer | Modern Custom File Dialog |
 |:---:|:---:|
-| ![MIDI to QWERTY UI](assets/screenshot_midi_to_qwerty.png) | ![File Dialog UI](assets/screenshot_file_dialog.png) |
+| <img src="assets/screenshot_midi_to_qwerty.png" width="450" alt="MIDI to QWERTY UI"> | <img src="assets/screenshot_file_dialog.png" width="450" alt="File Dialog UI"> |
 
 <div align="center">
 
 | Settings & Custom Themes |
 |:---:|
-| ![Settings UI](assets/screenshot_settings.png) |
+| <img src="assets/screenshot_settings.png" width="450" alt="Settings UI"> |
 
 </div>
 
