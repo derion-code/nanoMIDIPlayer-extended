@@ -1,12 +1,26 @@
 <img width="804" height="249" alt="bnr" src="https://github.com/user-attachments/assets/63d98de7-416e-493c-876b-f76d1ee8599b" />
 
+> [!NOTE]
+> **nanoMIDIPlayer-extended** is a fork of [NotHammer043/nanoMIDIPlayer](https://github.com/NotHammer043/nanoMIDIPlayer) with native Wayland/uinput support, evdev global hotkeys, and playback stability improvements.
+
 **nanoMIDIPlayer** is a lightweight MIDI player that can simulate MIDI to QWERTY or send MIDI signals directly to output MIDI devices.
 
-![GitHub stars](https://img.shields.io/github/stars/NotHammer043/nanoMIDIPlayer?style=for-the-badge)
-![GitHub license](https://img.shields.io/github/license/NotHammer043/nanoMIDIPlayer?style=for-the-badge)
-[![Download nanoMIDIPlayer](https://img.shields.io/github/downloads/NotHammer043/nanoMIDIPlayer/total?style=for-the-badge)](https://github.com/NotHammer043/nanoMIDIPlayer/releases)  
+![GitHub stars](https://img.shields.io/github/stars/derion-code/nanoMIDIPlayer-extended?style=for-the-badge)
+![GitHub license](https://img.shields.io/github/license/derion-code/nanoMIDIPlayer-extended?style=for-the-badge)
+[![Download nanoMIDIPlayer](https://img.shields.io/github/downloads/derion-code/nanoMIDIPlayer-extended/total?style=for-the-badge)](https://github.com/derion-code/nanoMIDIPlayer-extended/releases)  
 
 [![Discord](https://us-east-1.tixte.net/uploads/nitrogift.discowd.com/mfmrte8il51.png)](https://nanomidi.net/discord)  [![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/nanoMIDI)  
+---
+
+## ✨ What's New in This Fork
+
+This fork (**nanoMIDIPlayer-extended**) introduces key Linux compatibility features and stability improvements:
+
+- **uinput / Wayland Support**: Keypress simulation on Linux using `/dev/uinput` via `evdev`. This enables full functionality under Wayland compositors (GNOME, KDE Plasma, Sway, Hyprland, etc.) and XWayland where conventional X11 synthetic key events (`pynput`) are restricted. Can be selected in UI Settings or launched via `--input-module uinput`.
+- **evdev Global Hotkeys**: Kernel-level global hotkey listener that reads directly from Linux input device nodes (`/dev/input/event*`). Hotkeys work seamlessly regardless of which window has focus (even under Wayland and in full-screen games), ignores virtual keyboard feedback loops, and supports dynamic device hot-plugging.
+- **Playback Freeze Fix**: Eliminates deadlocks and UI freezes caused by re-entrant `stopPlayback` calls when triggering hotkeys. Adds self-join prevention so playback threads do not deadlock waiting on themselves, and updates playback state flags immediately upon stop initiation.
+- **Thread-Safety Hardening**: UI modifications and playback termination triggered from worker threads are safely dispatched onto Tkinter's main event loop using `app.after(0, ...)`. Critical playback loops and stop routines are protected with `try/finally` blocks to guarantee key releases and restore UI controls even if an unexpected error occurs.
+
 ---
 
 ## 🚀 Features  
@@ -31,12 +45,12 @@
 https://github.com/user-attachments/assets/bb727c89-bd29-44f8-9194-e09e8f49975f
 
 ---
-### 🔹 [Download](https://github.com/NotHammer043/nanoMIDIPlayer/releases)  
-Get the latest version of [**nanoMIDIPlayer Here**](https://github.com/NotHammer043/nanoMIDIPlayer/releases):  
-[![Download nanoMIDIPlayer](https://img.shields.io/github/downloads/NotHammer043/nanoMIDIPlayer/total?style=for-the-badge)](https://github.com/NotHammer043/nanoMIDIPlayer/releases)  
+### 🔹 [Download](https://github.com/derion-code/nanoMIDIPlayer-extended/releases)  
+Get the latest version of [**nanoMIDIPlayer-extended Here**](https://github.com/derion-code/nanoMIDIPlayer-extended/releases):  
+[![Download nanoMIDIPlayer](https://img.shields.io/github/downloads/derion-code/nanoMIDIPlayer-extended/total?style=for-the-badge)](https://github.com/derion-code/nanoMIDIPlayer-extended/releases)  
 
 ### 🛠️ Setup  
-1. **Download** [nanoMIDIPlayer.exe](https://github.com/NotHammer043/nanoMIDIPlayer/releases)  or [nanoMIDIPlayer-macOS.dmg](https://github.com/NotHammer043/nanoMIDIPlayer/releases) for macOS  
+1. **Download** [nanoMIDIPlayer.exe](https://github.com/derion-code/nanoMIDIPlayer-extended/releases)  or [nanoMIDIPlayer-macOS.dmg](https://github.com/derion-code/nanoMIDIPlayer-extended/releases) for macOS  
 2. **Run** nanoMIDIPlayer.exe  
 3. **Select a MIDI File** or find one from **MIDI Hub**  
 4. **Focus** on your virtual piano app/game  
@@ -123,8 +137,8 @@ Open-source programs like this often get flagged as viruses because some **malwa
 
 #### 1. Clone The Repository  
 ```bash
-git clone https://github.com/NotHammer043/nanoMIDIPlayer.git
-cd nanoMIDIPlayer
+git clone https://github.com/derion-code/nanoMIDIPlayer-extended.git
+cd nanoMIDIPlayer-extended
 ```
 
 #### 2. Install Dependencies  
@@ -171,9 +185,19 @@ python main.py --input-module uinput
 ---
 
 ### 💖 Support & Contributions  
-- **Star the repo** ⭐ on [GitHub](https://github.com/NotHammer043/nanoMIDIPlayer)  
-- **Report issues** 🛠️ via [GitHub Issues](https://github.com/NotHammer043/nanoMIDIPlayer/issues)  
+- **Star the repo** ⭐ on [GitHub](https://github.com/derion-code/nanoMIDIPlayer-extended)  
+- **Report issues** 🛠️ via [GitHub Issues](https://github.com/derion-code/nanoMIDIPlayer-extended/issues)  
 - **Contribute** 💻 via Pull Requests  
-- **Donate** via **[BuyMeACoffee <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" />](https://buymeacoffee.com/nanomidi)**
+- **Original Project**: Support upstream development via **[BuyMeACoffee <img width="16" height="16" alt="aZdziwkryKjF" src="https://github.com/user-attachments/assets/065003ea-0cfc-410a-b0f2-d11ce60426b2" />](https://buymeacoffee.com/nanomidi)**
+
+---
+
+## 📜 Credits
+
+This project is an extended fork of **[nanoMIDIPlayer](https://github.com/NotHammer043/nanoMIDIPlayer)**, originally created and maintained by **[NotHammer043](https://github.com/NotHammer043)**.
+
+- **Original Project**: [NotHammer043/nanoMIDIPlayer](https://github.com/NotHammer043/nanoMIDIPlayer)
+- **Website & MIDI Hub**: [nanoMIDI.net](https://nanomidi.net)
+- Special thanks to NotHammer043 and the entire nanoMIDIPlayer community for the original codebase, features, and inspiration!
 
 [![Star History Chart](https://api.star-history.com/svg?repos=NotHammer043/nanoMIDIPlayer&type=Date)](https://www.star-history.com/#NotHammer043/nanoMIDIPlayer&Date)  
