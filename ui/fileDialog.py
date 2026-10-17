@@ -122,6 +122,14 @@ class CustomFileDialog(ctk.CTkToplevel):
         height = 480
         self._center_window(master, width, height)
 
+        self.all_folders = []
+        self.all_files = []
+        self.current_filtered_folders = []
+        self.current_filtered_files = []
+        self.scan_error = None
+        self._filter_after_id = None
+        self._is_updating_path = False
+
         # Layout Setup
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -192,20 +200,117 @@ class CustomFileDialog(ctk.CTkToplevel):
             border_color=self.btn_hover_color
         )
         self.path_entry.grid(row=0, column=1, sticky="ew")
+        self.path_entry.bind("<KeyRelease>", self._on_path_key_release)
         self.path_entry.bind("<Return>", self._on_path_entry_return)
 
+    def _on_path_key_release(self, event=None):
+        if self._is_updating_path:
+            return
+
+        if event and event.keysym in ("Return", "Escape", "Tab", "Up", "Down", "Left", "Right"):
+            return
+
+        if self._filter_after_id is not None:
+            try:
+                self.after_cancel(self._filter_after_id)
+            except Exception:
+                pass
+            self._filter_after_id = None
+
+        self._filter_after_id = self.after(250, self._apply_path_filter)
+
+    def _apply_path_filter(self):
+        self._filter_after_id = None
+        if not hasattr(self, "path_entry") or not self.path_entry.winfo_exists():
+            return
+
+        raw_text = self.path_entry.get().strip()
+
+        if not raw_text or raw_text == self.current_dir:
+            self.filter_list("")
+            return
+
+        if raw_text.startswith(self.current_dir + os.sep) or raw_text.startswith(self.current_dir + "/"):
+            sub = raw_text[len(self.current_dir):].lstrip("/\\")
+            self.filter_list(sub)
+            return
+
+        if "/" in raw_text or "\\" in raw_text or raw_text.startswith("~"):
+            expanded = os.path.expanduser(raw_text)
+            basename = os.path.basename(expanded)
+            self.filter_list(basename)
+            return
+
+        self.filter_list(raw_text)
+
     def _on_path_entry_return(self, event=None):
-        target = self.path_entry.get().strip()
-        if os.path.isdir(target):
-            self.navigate_to(target)
-        else:
+        if self._filter_after_id is not None:
+            try:
+                self.after_cancel(self._filter_after_id)
+            except Exception:
+                pass
+            self._filter_after_id = None
+            self._apply_path_filter()
+
+        raw_text = self.path_entry.get().strip()
+        if not raw_text:
             self._update_path_display()
+            self.filter_list("")
+            return
+
+        expanded = os.path.abspath(os.path.expanduser(raw_text))
+
+        # 1. Valid directory: navigate to it
+        if os.path.isdir(expanded):
+            self.navigate_to(expanded)
+            return
+
+        # 2. Valid file: select and confirm it
+        if os.path.isfile(expanded):
+            self.selected_file = expanded
+            self.on_select()
+            return
+
+        # 3. Check directly in current directory
+        in_current = os.path.join(self.current_dir, raw_text)
+        if os.path.isdir(in_current):
+            self.navigate_to(in_current)
+            return
+        if os.path.isfile(in_current):
+            self.selected_file = in_current
+            self.on_select()
+            return
+
+        # 4. Check filtered list: if exactly one match, navigate or select it
+        filtered_folders = getattr(self, "current_filtered_folders", [])
+        filtered_files = getattr(self, "current_filtered_files", [])
+
+        if len(filtered_folders) == 1 and len(filtered_files) == 0:
+            self.navigate_to(os.path.join(self.current_dir, filtered_folders[0]))
+            return
+        elif len(filtered_files) == 1 and len(filtered_folders) == 0:
+            self.selected_file = os.path.join(self.current_dir, filtered_files[0])
+            self.on_select()
+            return
+        elif (len(filtered_folders) + len(filtered_files)) == 1:
+            if filtered_folders:
+                self.navigate_to(os.path.join(self.current_dir, filtered_folders[0]))
+            else:
+                self.selected_file = os.path.join(self.current_dir, filtered_files[0])
+                self.on_select()
+            return
+
+        # Revert path entry to current_dir and clear filter
+        self._update_path_display()
+        self.filter_list("")
 
     def _update_path_display(self):
-        self.path_entry.configure(state="normal")
-        self.path_entry.delete(0, "end")
-        self.path_entry.insert(0, self.current_dir)
-        self.path_entry.configure(state="readonly")
+        self._is_updating_path = True
+        try:
+            self.path_entry.delete(0, "end")
+            self.path_entry.insert(0, self.current_dir)
+        finally:
+            self._is_updating_path = False
 
     def _build_center_list(self):
         self.scroll_frame = ctk.CTkScrollableFrame(
@@ -284,8 +389,19 @@ class CustomFileDialog(ctk.CTkToplevel):
         if not os.path.isdir(target_dir):
             return
 
-        self.current_dir = os.path.abspath(target_dir)
-        self._update_path_display()
+        if self._filter_after_id is not None:
+            try:
+                self.after_cancel(self._filter_after_id)
+            except Exception:
+                pass
+            self._filter_after_id = None
+
+        self._is_updating_path = True
+        try:
+            self.current_dir = os.path.abspath(target_dir)
+            self._update_path_display()
+        finally:
+            self._is_updating_path = False
 
         # Check if Up button should be enabled
         parent = os.path.dirname(self.current_dir)
@@ -301,13 +417,14 @@ class CustomFileDialog(ctk.CTkToplevel):
         self.filename_entry.delete(0, "end")
         self.select_btn.configure(state="disabled")
 
-        # Clear existing entries in scroll frame
-        for child in self.scroll_frame.winfo_children():
-            child.destroy()
+        self.scan_directory()
+        self.render_list()
 
-        # Read directory using os.scandir efficiently
-        folders = []
-        files = []
+    def scan_directory(self):
+        self.all_folders = []
+        self.all_files = []
+        self.scan_error = None
+
         try:
             with os.scandir(self.current_dir) as entries:
                 for entry in entries:
@@ -316,35 +433,74 @@ class CustomFileDialog(ctk.CTkToplevel):
                         if name.startswith('.'):
                             continue
                         if entry.is_dir(follow_symlinks=False):
-                            folders.append(name)
+                            self.all_folders.append(name)
                         elif entry.is_file(follow_symlinks=False):
                             lower_name = name.lower()
                             if any(lower_name.endswith(ext) for ext in self.allowed_extensions):
-                                files.append(name)
+                                self.all_files.append(name)
                     except OSError:
                         continue
         except (PermissionError, OSError) as e:
             logger.warning(f"Error accessing directory '{self.current_dir}': {e}")
+            self.scan_error = str(e)
+            return
+
+        self.all_folders.sort(key=str.lower)
+        self.all_files.sort(key=str.lower)
+        self.current_filtered_folders = list(self.all_folders)
+        self.current_filtered_files = list(self.all_files)
+
+    def filter_list(self, query):
+        if not query or not query.strip():
+            self.render_list(self.all_folders, self.all_files)
+            return
+
+        q = query.strip().lower()
+        filtered_folders = [f for f in self.all_folders if q in f.lower()]
+        filtered_files = [f for f in self.all_files if q in f.lower()]
+        self.render_list(filtered_folders, filtered_files)
+
+    def render_list(self, folders=None, files=None):
+        if folders is None:
+            folders = self.all_folders
+        if files is None:
+            files = self.all_files
+
+        self.current_filtered_folders = list(folders)
+        self.current_filtered_files = list(files)
+
+        # Clear existing entries in scroll frame
+        for child in self.scroll_frame.winfo_children():
+            child.destroy()
+
+        self.selected_btn = None
+
+        if self.scan_error:
             err_lbl = ctk.CTkLabel(
                 self.scroll_frame,
-                text=f"Cannot access directory: {e}",
+                text=f"Cannot access directory: {self.scan_error}",
                 font=self.font12,
                 text_color=self.text_color_disabled
             )
             err_lbl.pack(pady=20, padx=10)
+            self.after(10, lambda: self.scroll_frame._parent_canvas.yview_moveto(0.0))
             return
 
-        folders.sort(key=str.lower)
-        files.sort(key=str.lower)
+        current_text = self.path_entry.get().strip() if hasattr(self, "path_entry") else ""
+        is_searching = bool(current_text and current_text != self.current_dir)
 
         if not folders and not files:
+            msg = "No matching files or folders found" if is_searching else "Folder is empty or contains no MIDI files"
             empty_lbl = ctk.CTkLabel(
                 self.scroll_frame,
-                text="Folder is empty or contains no MIDI files",
+                text=msg,
                 font=self.font12,
                 text_color=self.text_color_disabled
             )
             empty_lbl.pack(pady=30, padx=10)
+            if self.selected_file:
+                self.select_btn.configure(state="disabled")
+            self.after(10, lambda: self.scroll_frame._parent_canvas.yview_moveto(0.0))
             return
 
         # Cap items to prevent UI freezing if directory is extraordinarily large
@@ -353,6 +509,8 @@ class CustomFileDialog(ctk.CTkToplevel):
         display_folders = folders[:MAX_ITEMS]
         remaining = max(0, MAX_ITEMS - len(display_folders))
         display_files = files[:remaining]
+
+        selected_file_found = False
 
         for folder_name in display_folders:
             fpath = os.path.join(self.current_dir, folder_name)
@@ -374,6 +532,9 @@ class CustomFileDialog(ctk.CTkToplevel):
 
         for file_name in display_files:
             fpath = os.path.join(self.current_dir, file_name)
+            is_selected = (self.selected_file is not None and os.path.abspath(fpath) == os.path.abspath(self.selected_file))
+            btn_fg = self.highlight_color if is_selected else "transparent"
+
             btn = ctk.CTkButton(
                 self.scroll_frame,
                 text=f"🎵  {file_name}",
@@ -381,7 +542,7 @@ class CustomFileDialog(ctk.CTkToplevel):
                 height=28,
                 corner_radius=4,
                 font=self.font12,
-                fg_color="transparent",
+                fg_color=btn_fg,
                 hover_color=self.btn_hover_color,
                 text_color=self.text_color,
                 border_width=0
@@ -389,6 +550,10 @@ class CustomFileDialog(ctk.CTkToplevel):
             btn.pack(fill="x", pady=1, padx=2)
             btn.bind("<Double-Button-1>", lambda e, p=fpath: self.on_file_double_click(p))
             btn.configure(command=lambda p=fpath, b=btn: self.on_file_click(p, b))
+
+            if is_selected:
+                self.selected_btn = btn
+                selected_file_found = True
 
         if total_count > MAX_ITEMS:
             more_lbl = ctk.CTkLabel(
@@ -398,6 +563,13 @@ class CustomFileDialog(ctk.CTkToplevel):
                 text_color=self.text_color_disabled
             )
             more_lbl.pack(pady=8)
+
+        # Update Select button state based on whether selected file is visible
+        if self.selected_file:
+            if selected_file_found:
+                self.select_btn.configure(state="normal")
+            else:
+                self.select_btn.configure(state="disabled")
 
         # Reset scroll position to top
         self.after(10, lambda: self.scroll_frame._parent_canvas.yview_moveto(0.0))
@@ -454,6 +626,12 @@ class CustomFileDialog(ctk.CTkToplevel):
         self._close_dialog()
 
     def _close_dialog(self):
+        if self._filter_after_id is not None:
+            try:
+                self.after_cancel(self._filter_after_id)
+            except Exception:
+                pass
+            self._filter_after_id = None
         try:
             self.grab_release()
         except Exception:
