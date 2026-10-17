@@ -399,6 +399,9 @@ class CustomFileDialog(ctk.CTkToplevel):
             )
             more_lbl.pack(pady=8)
 
+        # Reset scroll position to top
+        self.after(10, lambda: self.scroll_frame._parent_canvas.yview_moveto(0.0))
+
     def on_folder_click(self, folder_path, btn):
         if self.selected_btn and self.selected_btn.winfo_exists():
             self.selected_btn.configure(fg_color="transparent")
